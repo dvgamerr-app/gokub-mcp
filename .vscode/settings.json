@@ -1,2 +1,16 @@
 {
+  "files.eol": "\n",
+  "[go]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "explicit"
+    },
+    "editor.insertSpaces": false,
+    "editor.tabSize": 2,
+    "editor.detectIndentation": false
+  },
+  "go.formatTool": "gofmt",
+  "go.useLanguageServer": true,
+  "go.lintOnSave": "workspace",
+  "go.testFlags": ["-v"]
 }
