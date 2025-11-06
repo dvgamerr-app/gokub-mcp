@@ -28,8 +28,8 @@ func ValidateArgs(args interface{}) (map[string]interface{}, error) {
 	return argsMap, nil
 }
 
-func ErrorResult(message string) (*mcp.CallToolResult, error) {
-	return mcp.NewToolResultError(message), nil
+func ErrorResult(err string) (*mcp.CallToolResult, error) {
+	return nil, fmt.Errorf("tool: %v", err)
 }
 
 func TextResult(message string) (*mcp.CallToolResult, error) {

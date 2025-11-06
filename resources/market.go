@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"gokub/utils"
-
 	"github.com/dvgamerr-app/go-bitkub/market"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/rs/zerolog/log"
 )
 
 func NewSymbolsResource() server.ServerResource {
@@ -25,17 +24,17 @@ func NewSymbolsResource() server.ServerResource {
 }
 
 func SymbolsResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	utils.Logger.Debug().Str("uri", request.Params.URI).Msg("read_resource")
+	log.Debug().Str("uri", request.Params.URI).Msg("read_resource")
 
 	result, err := market.GetSymbols()
 	if err != nil {
-		utils.Logger.Error().Err(err).Msg("GetSymbols failed")
+		log.Error().Err(err).Msg("GetSymbols failed")
 		return nil, fmt.Errorf("failed to get symbols: %w", err)
 	}
 
 	jsonData, err := json.Marshal(result)
 	if err != nil {
-		utils.Logger.Error().Err(err).Msg("json marshal failed")
+		log.Error().Err(err).Msg("json marshal failed")
 		return nil, fmt.Errorf("failed to marshal symbols: %w", err)
 	}
 
@@ -61,24 +60,24 @@ func NewTickerResource() server.ServerResourceTemplate {
 }
 
 func TickerResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
-	utils.Logger.Debug().Str("uri", request.Params.URI).Msg("read_resource")
+	log.Debug().Str("uri", request.Params.URI).Msg("read_resource")
 
 	var symbol string
 	_, err := fmt.Sscanf(request.Params.URI, "bitkub://ticker/%s", &symbol)
 	if err != nil {
-		utils.Logger.Error().Err(err).Str("uri", request.Params.URI).Msg("invalid URI format")
+		log.Error().Err(err).Str("uri", request.Params.URI).Msg("invalid URI format")
 		return nil, fmt.Errorf("invalid URI format: %w", err)
 	}
 
 	result, err := market.GetTicker(symbol)
 	if err != nil {
-		utils.Logger.Error().Err(err).Str("symbol", symbol).Msg("GetTicker failed")
+		log.Error().Err(err).Str("symbol", symbol).Msg("GetTicker failed")
 		return nil, fmt.Errorf("failed to get ticker for %s: %w", symbol, err)
 	}
 
 	jsonData, err := json.Marshal(result)
 	if err != nil {
-		utils.Logger.Error().Err(err).Msg("json marshal failed")
+		log.Error().Err(err).Msg("json marshal failed")
 		return nil, fmt.Errorf("failed to marshal ticker: %w", err)
 	}
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/dvgamerr-app/go-bitkub/market"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/rs/zerolog/log"
 )
 
 func NewTickerTool() mcp.Tool {
@@ -23,41 +24,37 @@ func NewTickerTool() mcp.Tool {
 func TickerHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, err := utils.ValidateArgs(request.Params.Arguments)
 	if err != nil {
-		utils.Logger.Error().Msg("Invalid arguments format for ticker")
-		return utils.ErrorResult("invalid arguments format")
+		log.Warn().Msg("Invalid arguments format for ticker")
+		return utils.ErrorResult("invalid arguments")
 	}
 
 	symbol, err := utils.GetStringArg(args, "symbol")
 	if err != nil {
-		utils.Logger.Error().Msg("Symbol parameter missing")
-		return utils.ErrorResult(err.Error())
+		log.Warn().Msg("Symbol parameter missing")
+		return utils.ErrorResult("symbol required")
 	}
 
 	symbol = strings.ToLower(symbol)
-	utils.Logger.Debug().Str("symbol", symbol).Msg("Getting ticker")
+	log.Debug().Str("symbol", symbol).Msg("Getting ticker")
 
 	tickers, err := market.GetTicker(symbol)
 	if err != nil {
-		utils.Logger.Error().Err(err).Str("symbol", symbol).Msg("Failed to get ticker")
-		return utils.ErrorResult(fmt.Sprintf("Failed to get ticker: %v", err))
+		log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get ticker")
+		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
 	if len(tickers) == 0 {
-		utils.Logger.Warn().Str("symbol", symbol).Msg("No ticker data found")
-		return utils.ErrorResult("No ticker data found for symbol: " + symbol)
+		log.Warn().Str("symbol", symbol).Msg("No ticker data found")
+		return utils.ErrorResult("no data: " + symbol)
 	}
 
-	utils.Logger.Info().Str("symbol", symbol).Float64("last_price", tickers[0].Last).Msg("Retrieved ticker data")
+	log.Info().Str("symbol", symbol).Float64("last_price", tickers[0].Last).Msg("Retrieved ticker data")
 
 	ticker := tickers[0]
-	result := fmt.Sprintf("📈 %s Market Ticker:\n\n", strings.ToUpper(symbol))
-	result += fmt.Sprintf("💰 Last Price:   %.2f THB\n", ticker.Last)
-	result += fmt.Sprintf("📊 24h Volume:   %.2f\n", ticker.BaseVolume)
-	result += fmt.Sprintf("📈 24h High:     %.2f THB\n", ticker.High24hr)
-	result += fmt.Sprintf("📉 24h Low:      %.2f THB\n", ticker.Low24hr)
-	result += fmt.Sprintf("🔄 24h Change:   %.2f%%\n", ticker.PercentChange)
-	result += fmt.Sprintf("💵 Best Bid:     %.2f THB\n", ticker.HighestBid)
-	result += fmt.Sprintf("💸 Best Ask:     %.2f THB\n", ticker.LowestAsk)
+	result := fmt.Sprintf("📈 %s:\n", strings.ToUpper(symbol))
+	result += fmt.Sprintf("Price: %.2f THB\n", ticker.Last)
+	result += fmt.Sprintf("24h: %.2f%% | H:%.2f L:%.2f\n", ticker.PercentChange, ticker.High24hr, ticker.Low24hr)
+	result += fmt.Sprintf("Vol: %.2f | Bid:%.2f Ask:%.2f\n", ticker.BaseVolume, ticker.HighestBid, ticker.LowestAsk)
 
 	return utils.TextResult(result)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/dvgamerr-app/go-bitkub/market"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/rs/zerolog/log"
 )
 
 func NewMarketDepthTool() mcp.Tool {
@@ -26,14 +27,14 @@ func NewMarketDepthTool() mcp.Tool {
 func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, err := utils.ValidateArgs(request.Params.Arguments)
 	if err != nil {
-		utils.Logger.Error().Msg("Invalid arguments format for market depth")
-		return utils.ErrorResult("invalid arguments format")
+		log.Warn().Msg("Invalid arguments format for market depth")
+		return utils.ErrorResult("invalid arguments")
 	}
 
 	symbol, err := utils.GetStringArg(args, "symbol")
 	if err != nil {
-		utils.Logger.Error().Msg("Symbol parameter missing for market depth")
-		return utils.ErrorResult(err.Error())
+		log.Warn().Msg("Symbol parameter missing for market depth")
+		return utils.ErrorResult("symbol required")
 	}
 
 	limit := 10
@@ -47,27 +48,25 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 	}
 
 	symbol = strings.ToLower(symbol)
-	utils.Logger.Debug().Str("symbol", symbol).Int("limit", limit).Msg("Getting market depth")
+	log.Debug().Str("symbol", symbol).Int("limit", limit).Msg("Getting market depth")
 
 	depth, err := market.GetDepth(symbol, limit)
 	if err != nil {
-		utils.Logger.Error().Err(err).Str("symbol", symbol).Msg("Failed to get market depth")
-		return utils.ErrorResult(fmt.Sprintf("Failed to get market depth: %v", err))
+		log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get market depth")
+		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	utils.Logger.Info().Str("symbol", symbol).Int("asks", len(depth.Asks)).Int("bids", len(depth.Bids)).Msg("Retrieved market depth")
+	log.Info().Str("symbol", symbol).Int("asks", len(depth.Asks)).Int("bids", len(depth.Bids)).Msg("Retrieved market depth")
 
-	result := fmt.Sprintf("📊 Market Depth for %s:\n\n", strings.ToUpper(symbol))
-	result += "📉 ASKS (Sell Orders):\n"
+	result := fmt.Sprintf("📊 %s Depth:\nASK:\n", strings.ToUpper(symbol))
 	for i := len(depth.Asks) - 1; i >= 0 && i >= len(depth.Asks)-5; i-- {
-		result += fmt.Sprintf("   %.2f THB | %.8f\n", depth.Asks[i][0], depth.Asks[i][1])
+		result += fmt.Sprintf("%.2f | %.8f\n", depth.Asks[i][0], depth.Asks[i][1])
 	}
 
-	result += "\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
+	result += "---\nBID:\n"
 
-	result += "📈 BIDS (Buy Orders):\n"
 	for i := 0; i < len(depth.Bids) && i < 5; i++ {
-		result += fmt.Sprintf("   %.2f THB | %.8f\n", depth.Bids[i][0], depth.Bids[i][1])
+		result += fmt.Sprintf("%.2f | %.8f\n", depth.Bids[i][0], depth.Bids[i][1])
 	}
 
 	return utils.TextResult(result)

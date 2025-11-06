@@ -8,6 +8,7 @@ import (
 
 	"github.com/dvgamerr-app/go-bitkub/market"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/rs/zerolog/log"
 )
 
 func NewTradingStrategyPrompt() mcp.Prompt {
@@ -32,7 +33,7 @@ func TradingStrategyHandler(ctx context.Context, request mcp.GetPromptRequest) (
 		timeframe = val
 	}
 
-	utils.Logger.Debug().
+	log.Debug().
 		Str("symbol", symbol).
 		Str("risk", riskTolerance).
 		Str("timeframe", timeframe).
@@ -75,7 +76,7 @@ Please provide:
 Format your response in a clear, actionable manner suitable for execution.`,
 		strings.ToUpper(symbol), riskTolerance, timeframe, tickerData)
 
-	utils.Logger.Info().
+	log.Info().
 		Str("symbol", symbol).
 		Msg("Generated trading strategy prompt")
 
@@ -110,7 +111,7 @@ func MarketAnalysisHandler(ctx context.Context, request mcp.GetPromptRequest) (*
 	}
 
 	symbols := strings.Split(symbolsStr, ",")
-	utils.Logger.Debug().
+	log.Debug().
 		Strs("symbols", symbols).
 		Str("analysis_type", analysisType).
 		Msg("Generating market analysis prompt")
@@ -150,7 +151,7 @@ Please provide:
 Provide your analysis in a structured, professional format.`,
 		analysisType, marketData.String())
 
-	utils.Logger.Info().
+	log.Info().
 		Strs("symbols", symbols).
 		Msg("Generated market analysis prompt")
 

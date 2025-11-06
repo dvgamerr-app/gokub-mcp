@@ -9,8 +9,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var Logger zerolog.Logger
-
 func InitLogger() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
@@ -43,5 +41,4 @@ func InitLogger() {
 
 	zerolog.SetGlobalLevel(level)
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
-	Logger = zerolog.New(output).With().Timestamp().Logger()
 }

@@ -9,6 +9,7 @@ import (
 
 	"github.com/dvgamerr-app/go-bitkub/market"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/rs/zerolog/log"
 )
 
 func NewOpenOrdersTool() mcp.Tool {
@@ -24,46 +25,44 @@ func NewOpenOrdersTool() mcp.Tool {
 func OpenOrdersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, err := utils.ValidateArgs(request.Params.Arguments)
 	if err != nil {
-		utils.Logger.Error().Msg("Invalid arguments format for open orders")
-		return utils.ErrorResult("invalid arguments format")
+		log.Warn().Msg("Invalid arguments format for open orders")
+		return utils.ErrorResult("invalid arguments")
 	}
 
 	symbol, err := utils.GetStringArg(args, "symbol")
 	if err != nil {
-		utils.Logger.Error().Msg("Symbol parameter missing for open orders")
-		return utils.ErrorResult(err.Error())
+		log.Warn().Msg("Symbol parameter missing for open orders")
+		return utils.ErrorResult("symbol required")
 	}
 
 	symbol = strings.ToLower(symbol)
-	utils.Logger.Debug().Str("symbol", symbol).Msg("Getting open orders")
+	log.Debug().Str("symbol", symbol).Msg("Getting open orders")
 
 	orders, err := market.GetOpenOrders(symbol)
 	if err != nil {
-		utils.Logger.Error().Err(err).Str("symbol", symbol).Msg("Failed to get open orders")
-		return utils.ErrorResult(fmt.Sprintf("Failed to get open orders: %v", err))
+		log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get open orders")
+		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	utils.Logger.Info().Str("symbol", symbol).Int("count", len(orders)).Msg("Retrieved open orders")
+	log.Info().Str("symbol", symbol).Int("count", len(orders)).Msg("Retrieved open orders")
 
 	if len(orders) == 0 {
-		utils.Logger.Debug().Str("symbol", symbol).Msg("No open orders found")
-		return utils.TextResult(fmt.Sprintf("No open orders for %s", strings.ToUpper(symbol)))
+		log.Debug().Str("symbol", symbol).Msg("No open orders found")
+		return utils.TextResult(fmt.Sprintf("No orders: %s", strings.ToUpper(symbol)))
 	}
 
-	result := fmt.Sprintf("📋 Open Orders for %s:\n\n", strings.ToUpper(symbol))
+	result := fmt.Sprintf("📋 %s Orders:\n", strings.ToUpper(symbol))
 	for i, order := range orders {
-		result += fmt.Sprintf("%d. Order ID: %s\n", i+1, order.ID)
-		result += fmt.Sprintf("   Side: %s\n", strings.ToUpper(order.Side))
-		result += fmt.Sprintf("   Type: %s\n", order.Type)
+		result += fmt.Sprintf("%d. %s", i+1, order.ID)
 
 		if rate, err := strconv.ParseFloat(order.Rate, 64); err == nil {
-			result += fmt.Sprintf("   Rate: %.2f THB\n", rate)
+			result += fmt.Sprintf(" | %s %.2f", strings.ToUpper(order.Side), rate)
 		}
 		if amount, err := strconv.ParseFloat(order.Amount, 64); err == nil {
-			result += fmt.Sprintf("   Amount: %.8f\n", amount)
+			result += fmt.Sprintf(" x %.8f", amount)
 		}
 
-		result += fmt.Sprintf("   Timestamp: %d\n\n", order.Timestamp)
+		result += "\n"
 	}
 
 	return utils.TextResult(result)

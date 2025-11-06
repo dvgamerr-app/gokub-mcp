@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"gokub/prompts"
 	"gokub/resources"
 	"gokub/tools"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/dvgamerr-app/go-bitkub/bitkub"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/rs/zerolog/log"
 	"github.com/tmilewski/goenv"
 )
 
@@ -21,20 +23,42 @@ func init() {
 	secretKey := os.Getenv("BTK_SECRET")
 
 	if apiKey == "" || secretKey == "" {
-		utils.Logger.Warn().Msg("BTK_APIKEY and BTK_SECRET not set in environment")
-		utils.Logger.Info().Msg("Please set them to use Bitkub API features")
+		log.Warn().Msg("BTK_APIKEY and BTK_SECRET not set in environment")
+		log.Info().Msg("Please set them to use Bitkub API features")
 	} else {
 		if err := bitkub.Initlizer(apiKey, secretKey); err != nil {
-			utils.Logger.Fatal().Err(err).Msg("Failed to initialize Bitkub client")
+			log.Fatal().Err(err).Msg("Failed to initialize Bitkub client")
 		}
-		utils.Logger.Info().Msg("Bitkub client initialized successfully")
+		log.Info().Msg("Bitkub client initialized successfully")
 	}
 }
 
+func logServerInfo(s *server.MCPServer, mode string) {
+	log.Info().Msgf("Starting Bitkub MCP Server (%s Mode)...", mode)
+
+	if tools := s.ListTools(); len(tools) > 0 {
+		log.Info().Msg("Available Tools:")
+		i := 1
+		for _, tool := range tools {
+			log.Info().Msgf("   %d. %s - %s", i, tool.Tool.Name, tool.Tool.Description)
+			i++
+		}
+	}
+}
+
+var (
+	name    = "Bitkub MCP Server 🚀"
+	version = "dev"
+)
+
 func main() {
+	serveHTTP := flag.Bool("serv", false, "Run server in HTTP mode instead of stdio")
+	flag.BoolVar(serveHTTP, "s", false, "Run server in HTTP mode instead of stdio (shorthand)")
+	flag.Parse()
+
 	s := server.NewMCPServer(
-		"Bitkub MCP Server 🚀",
-		"1.0.0",
+		name,
+		version,
 		server.WithResourceCapabilities(true, true),
 	)
 
@@ -50,35 +74,31 @@ func main() {
 	s.AddResource(resources.NewSymbolsResource().Resource, resources.NewSymbolsResource().Handler)
 	s.AddResourceTemplate(resources.NewTickerResource().Template, resources.NewTickerResource().Handler)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	if *serveHTTP {
+		logServerInfo(s, "HTTP")
 
-	utils.Logger.Info().Msg("Starting Bitkub MCP Server (HTTP Mode)...")
-	utils.Logger.Info().Msg("Available Tools:")
-	utils.Logger.Info().Msg("   1. get_wallet_balance - View wallet balances")
-	utils.Logger.Info().Msg("   2. get_ticker - Get current market prices")
-	utils.Logger.Info().Msg("   3. get_market_depth - View order book")
-	utils.Logger.Info().Msg("   4. get_my_open_orders - View your open orders")
-	utils.Logger.Info().Msg("   5. get_symbols - List all trading pairs")
-	utils.Logger.Info().Msg("Available Prompts:")
-	utils.Logger.Info().Msg("   1. trading_strategy - Generate trading strategy recommendations")
-	utils.Logger.Info().Msg("   2. market_analysis - Analyze market conditions")
-	utils.Logger.Info().Msg("Available Resources:")
-	utils.Logger.Info().Msg("   1. bitkub://symbols - List of all trading pairs")
-	utils.Logger.Info().Msg("   2. bitkub://ticker/{symbol} - Real-time market data")
-	utils.Logger.Info().Str("port", port).Msgf("Server listening on http://localhost:%s", port)
-	utils.Logger.Info().Msg("SSE endpoint: /sse")
-	utils.Logger.Info().Msg("Message endpoint: /message")
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "3000"
+		}
 
-	sseServer := server.NewSSEServer(s,
-		server.WithSSEEndpoint("/sse"),
-		server.WithMessageEndpoint("/message"),
-	)
+		log.Info().Str("port", port).Msgf("Server listening on http://localhost:%s", port)
+		log.Info().Msg("Endpoint SSE: /sse, Message: /msg")
 
-	addr := ":" + port
-	if err := sseServer.Start(addr); err != nil {
-		utils.Logger.Fatal().Err(err).Msg("Server error")
+		sseServer := server.NewSSEServer(s,
+			server.WithSSEEndpoint("/sse"),
+			server.WithMessageEndpoint("/msg"),
+		)
+
+		addr := ":" + port
+		if err := sseServer.Start(addr); err != nil {
+			log.Fatal().Err(err).Msg("Server error")
+		}
+	} else {
+		logServerInfo(s, "stdio")
+
+		if err := server.ServeStdio(s); err != nil {
+			log.Fatal().Err(err).Msg("Server error")
+		}
 	}
 }
