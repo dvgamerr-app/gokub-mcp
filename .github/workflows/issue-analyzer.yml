@@ -1,0 +1,95 @@
+name: Issue Analyzer
+
+on:
+  workflow_dispatch:
+#   issues:
+#     types: [opened, edited, reopened]
+
+permissions:
+  issues: write      # ให้สิทธิ์คอมเมนต์ใน issue
+  contents: read
+  models: read       # ใช้ GitHub Models API
+
+concurrency:
+  group: ai-triage-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Analyze issue with GitHub Models
+        uses: actions/github-script@v8
+        env:
+          MODEL_ID: ${{ vars.AI_MODEL_ID || 'openai/gpt-4o-mini' }}
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const issueText = `${issue.title}\n\n${issue.body || ''}`;
+            
+            const systemPrompt = 'You are a senior software engineer. Classify if the text describes an ERROR/BUG. If it is an error: diagnose briefly, list likely root causes, propose concrete fixes, and include a minimal patch or commands when possible. Output only JSON that matches the schema.';
+            
+            const payload = {
+              model: process.env.MODEL_ID,
+              temperature: 0.2,
+              max_tokens: 900,
+              response_format: {
+                type: 'json_schema',
+                json_schema: {
+                  name: 'issue_triage',
+                  strict: true,
+                  schema: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                      is_error: { type: 'boolean' },
+                      summary: { type: 'string' },
+                      root_cause: { type: 'string' },
+                      proposed_fix: { type: 'string' },
+                      code_patch: { type: 'string' },
+                      comment_markdown: { type: 'string' }
+                    },
+                    required: ['is_error', 'comment_markdown']
+                  }
+                }
+              },
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `Analyze this GitHub issue text and return JSON only.\n\n${issueText}` }
+              ]
+            };
+            
+            const response = await fetch('https://models.github.ai/inference/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Accept': 'application/vnd.github+json',
+                'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+                'X-GitHub-Api-Version': '2022-11-28',
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              throw new Error(`GitHub Models API error: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            const content = data.choices[0].message.content;
+            const result = JSON.parse(content);
+            
+            console.log('Analysis result:', JSON.stringify(result, null, 2));
+            
+            if (result.is_error && result.comment_markdown) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: result.comment_markdown
+              });
+              
+              console.log('✅ Comment posted successfully');
+            } else {
+              console.log('ℹ️ Not an error or no comment needed');
+            }
