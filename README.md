@@ -26,19 +26,19 @@
 <td width="50%">
 
 ### 🎯 Core Features
-- ✅ **MCP Server** - Built with mcp-go framework
-- 🌐 **HTTP/SSE Transport** - Real-time communication
-- 🔐 **Secure Authentication** - HMAC SHA256 signature
-- 💰 **Wallet Management** - View balances & transactions
+- ✅ **MCP Server** - Built with mcp-go
+- 🌐 **HTTP/SSE** - Real-time communication
+- 🔐 **Secure** - HMAC SHA256 signature
+- 💰 **Wallet** - View balances & transactions
 
 </td>
 <td width="50%">
 
 ### 🚀 Developer Experience
 - 💎 **Go-Bitkub SDK** - Full API v3 support
-- � **Easy Integration** - Works with Claude Desktop
+- 🧠 **Integration** - with Claude Desktop
 - 📊 **Market Data** - Real-time ticker & depth
-- � **Order Management** - Track open orders
+- 📖 **Order** - Track open orders
 
 </td>
 </tr>
