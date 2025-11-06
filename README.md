@@ -9,6 +9,7 @@ Bitkub MCP Server - Model Context Protocol server for Bitkub Cryptocurrency Exch
 ## Features
 
 - ✅ **MCP Server** - Built with mcp-go framework
+- 🌐 **HTTP/SSE Transport** - Server-Sent Events for real-time communication
 - 🔐 **Secure Authentication** - HMAC SHA256 signature
 - 💰 **Get Wallet Balance** - View your Bitkub wallet balances
 - 🚀 **Easy Integration** - Works with Claude Desktop and other MCP clients
@@ -29,16 +30,25 @@ go mod download
 2. สร้างไฟล์ `.env` และใส่ API keys:
 ```bash
 BTK_APIKEY=your_api_key_here
-BTK_SECRETKEY=your_secret_key_here
+BTK_SECRET=your_secret_key_here
 ```
 
 ## การใช้งาน
 
-### Run MCP Server
+### Run MCP Server (HTTP Mode)
 
 ```bash
+# Default port 8080
 go run main.go
+
+# Custom port
+PORT=3000 go run main.go
 ```
+
+Server จะรันที่:
+- 🌐 Main URL: `http://localhost:8080`
+- 📝 SSE endpoint: `http://localhost:8080/sse`
+- 📮 Message endpoint: `http://localhost:8080/message`
 
 ### Build
 
@@ -162,7 +172,7 @@ Total: 150 active trading pairs
 สร้างไฟล์ `.env` ใน root directory:
 ```
 BTK_APIKEY=your_api_key
-BTK_SECRETKEY=your_secret_key
+BTK_SECRET=your_secret_key
 ```
 
 ### วิธีที่ 2: Environment Variables
@@ -170,16 +180,18 @@ BTK_SECRETKEY=your_secret_key
 **Windows (PowerShell):**
 ```powershell
 $env:BTK_APIKEY="your_api_key"
-$env:BTK_SECRETKEY="your_secret_key"
+$env:BTK_SECRET="your_secret_key"
 ```
 
 **Linux/Mac:**
 ```bash
 export BTK_APIKEY="your_api_key"
-export BTK_SECRETKEY="your_secret_key"
+export BTK_SECRET="your_secret_key"
 ```
 
 ## การเชื่อมต่อกับ Claude Desktop
+
+### แบบ HTTP/SSE (แนะนำ)
 
 เพิ่มการตั้งค่าใน Claude Desktop config:
 
@@ -191,31 +203,42 @@ export BTK_SECRETKEY="your_secret_key"
 {
   "mcpServers": {
     "bitkub": {
+      "url": "http://localhost:8080/sse",
+      "transport": "sse"
+    }
+  }
+}
+```
+
+### แบบ Stdio (Legacy)
+
+หากต้องการใช้ stdio transport แทน HTTP:
+
+```json
+{
+  "mcpServers": {
+    "bitkub": {
       "command": "e:\\.dvgamerr\\gokub-mcp\\bitkub-mcp.exe",
       "env": {
         "BTK_APIKEY": "your_api_key",
-        "BTK_SECRETKEY": "your_secret_key"
+        "BTK_SECRET": "your_secret_key"
       }
     }
   }
 }
 ```
 
+**หมายเหตุ:** การตั้งค่า API keys ควรทำผ่าน environment variables ของระบบแทนการใส่ใน config file
+
 ## Project Structure
 
 ```
 gokub-mcp/
-├── main.go              # MCP Server entry point
-├── go.mod               # Go module dependencies
-├── go.sum               # Go module checksums
-├── README.md            # This file
-├── .env                 # API keys (create this file)
-└── go-bitkub/          # Bitkub API client
-    ├── client.go        # HTTP client
-    ├── endpoint.go      # API endpoints
-    ├── error.go         # Error handling
-    ├── main.go          # Core functions
-    └── market.go        # Market API functions
+├── main.go                    # MCP Server entry point (HTTP/SSE)
+├── go.mod                     # Go module dependencies
+├── go.sum                     # Go module checksums
+├── README.md                  # Project documentation
+├── .env                       # API keys (create this file, not in git)
 ```
 
 ## Security Notes

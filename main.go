@@ -13,15 +13,15 @@ import (
 )
 
 func init() {
-	utils.InitLogger()
-
 	goenv.Load()
 
+	utils.InitLogger()
+
 	apiKey := os.Getenv("BTK_APIKEY")
-	secretKey := os.Getenv("BTK_SECRETKEY")
+	secretKey := os.Getenv("BTK_SECRET")
 
 	if apiKey == "" || secretKey == "" {
-		utils.Logger.Warn().Msg("BTK_APIKEY and BTK_SECRETKEY not set in environment")
+		utils.Logger.Warn().Msg("BTK_APIKEY and BTK_SECRET not set in environment")
 		utils.Logger.Info().Msg("Please set them to use Bitkub API features")
 	} else {
 		if err := bitkub.Initlizer(apiKey, secretKey); err != nil {
@@ -35,7 +35,6 @@ func main() {
 	s := server.NewMCPServer(
 		"Bitkub MCP Server 🚀",
 		"1.0.0",
-		server.WithLogging(),
 		server.WithResourceCapabilities(true, true),
 	)
 
