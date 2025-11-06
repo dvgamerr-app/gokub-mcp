@@ -1,41 +1,84 @@
-# gokub-bot
+<div align="center">
 
-[![CodeQL](https://github.com/touno-io/gokub-bot/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/touno-io/gokub-bot/actions/workflows/codeql-analysis.yml)
+# 🚀 Bitkub MCP Server
 
-Bitkub MCP Server - Model Context Protocol server for Bitkub Cryptocurrency Exchange API
+[![CodeQL](https://github.com/dvgamerr-app/gokub-mcp/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/dvgamerr-app/gokub-mcp/actions/workflows/codeql-analysis.yml)
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?style=flat&logo=discord)](https://discord.gg/QDccF497Mw)
 
-![Foo](./docs/gokub.png)
+**Model Context Protocol server for Bitkub Cryptocurrency Exchange API**
 
-## Features
+*เชื่อมต่อ Claude Desktop กับ Bitkub Exchange ผ่าน MCP Protocol*
 
+![logo](./docs/logo-ai.png)
+
+[Features](#-features) • [Installation](#-installation) • [API Tools](#-available-tools) • [Configuration](#-configuration) • [Community](#-community)
+
+</div>
+
+---
+
+## ✨ Features
+
+<table>
+<tr>
+<td width="50%">
+
+### 🎯 Core Features
 - ✅ **MCP Server** - Built with mcp-go framework
-- 🌐 **HTTP/SSE Transport** - Server-Sent Events for real-time communication
+- 🌐 **HTTP/SSE Transport** - Real-time communication
 - 🔐 **Secure Authentication** - HMAC SHA256 signature
-- 💰 **Get Wallet Balance** - View your Bitkub wallet balances
-- 🚀 **Easy Integration** - Works with Claude Desktop and other MCP clients
-- 💎 **Go-Bitkub SDK** - Full Bitkub API v3 support
+- 💰 **Wallet Management** - View balances & transactions
 
-## Prerequisites
+</td>
+<td width="50%">
 
-- Go 1.21 or higher
-- Bitkub API Key และ Secret Key
+### 🚀 Developer Experience
+- 💎 **Go-Bitkub SDK** - Full API v3 support
+- � **Easy Integration** - Works with Claude Desktop
+- 📊 **Market Data** - Real-time ticker & depth
+- � **Order Management** - Track open orders
 
-## Installation
+</td>
+</tr>
+</table>
 
-1. Install dependencies:
+## 🔧 Installation
+
+### Quick Start
+
 ```bash
+# 1️⃣ Clone repository
+git clone https://github.com/dvgamerr-app/gokub-mcp.git
+cd gokub-mcp
+
+# 2️⃣ Install dependencies
 go mod download
+
+# 3️⃣ Create .env file
+echo "BTK_APIKEY=your_api_key_here" > .env
+echo "BTK_SECRET=your_secret_key_here" >> .env
+
+# 4️⃣ Run server
+go run main.go
 ```
 
-2. สร้างไฟล์ `.env` และใส่ API keys:
+### 🏗️ Build Executable
+
 ```bash
-BTK_APIKEY=your_api_key_here
-BTK_SECRET=your_secret_key_here
+# Windows
+go build -o bitkub-mcp.exe
+./bitkub-mcp.exe
+
+# Linux/Mac
+go build -o bitkub-mcp
+./bitkub-mcp
 ```
 
-## การใช้งาน
+## 🎮 Usage
 
-### Run MCP Server (HTTP Mode)
+### HTTP/SSE Server Mode
 
 ```bash
 # Default port 8080
@@ -45,158 +88,47 @@ go run main.go
 PORT=3000 go run main.go
 ```
 
-Server จะรันที่:
-- 🌐 Main URL: `http://localhost:8080`
-- 📝 SSE endpoint: `http://localhost:8080/sse`
-- 📮 Message endpoint: `http://localhost:8080/message`
+<details>
+<summary>📡 Server Endpoints</summary>
 
-### Build
+| Endpoint | Purpose | Method |
+|----------|---------|--------|
+| `http://localhost:8080` | Main URL | GET |
+| `http://localhost:8080/sse` | SSE Connection | GET |
+| `http://localhost:8080/message` | Send Message | POST |
 
-```bash
-go build -o bitkub-mcp.exe
-./bitkub-mcp.exe
-```
+</details>
 
-## Available Tools
+## 🛠️ Available Tools
 
-### 1. get_wallet_balance
 
-ดึงข้อมูลยอดเงินในกระเป๋า Bitkub ทั้งหมด
+1. `get_wallet_balance`
+2. `get_ticker`
+3. `get_market_depth`
+4. `get_my_open_orders`
+5. `get_symbols`
 
-**Parameters:** ไม่มี
 
-**Response Example:**
-```
-📊 Wallet Balance:
+## ⚙️ Configuration
 
-💰 THB:
-   Available: 10000.00000000
-   Reserved:  0.00000000
-   Total:     10000.00000000
-
-💰 BTC:
-   Available: 0.00150000
-   Reserved:  0.00000000
-   Total:     0.00150000
-
-💵 Total THB: 10000.00 THB
-```
-
-### 2. get_ticker
-
-ดูราคาปัจจุบันและข้อมูล market ticker
-
-**Parameters:**
-- `symbol` (required): Trading pair เช่น `btc_thb`, `eth_thb`, `ada_thb`
-
-**Response Example:**
-```
-📈 BTC_THB Market Ticker:
-
-💰 Last Price:   2500000.00 THB
-📊 24h Volume:   12.3456
-📈 24h High:     2550000.00 THB
-📉 24h Low:      2480000.00 THB
-🔄 24h Change:   1.25%
-💵 Best Bid:     2499500.00 THB
-💸 Best Ask:     2500500.00 THB
-```
-
-### 3. get_market_depth
-
-ดู order book (คำสั่งซื้อขายที่รออยู่)
-
-**Parameters:**
-- `symbol` (required): Trading pair
-- `limit` (optional): จำนวน orders ที่ต้องการดู (default: 10, max: 100)
-
-**Response Example:**
-```
-📊 Market Depth for BTC_THB:
-
-📉 ASKS (Sell Orders):
-   2505000.00 THB | 0.00120000
-   2504000.00 THB | 0.00150000
-   ...
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-📈 BIDS (Buy Orders):
-   2499000.00 THB | 0.00200000
-   2498000.00 THB | 0.00180000
-   ...
-```
-
-### 4. get_my_open_orders
-
-ดูคำสั่งซื้อขายที่เปิดอยู่ของคุณ
-
-**Parameters:**
-- `symbol` (required): Trading pair
-
-**Response Example:**
-```
-📋 Open Orders for BTC_THB:
-
-1. Order ID: 12345678
-   Side: BUY
-   Type: limit
-   Rate: 2500000.00 THB
-   Amount: 0.00100000
-   Timestamp: 1730717234567
-```
-
-### 5. get_symbols
-
-ดูรายการ trading pairs ทั้งหมดที่พร้อมใช้งาน
-
-**Parameters:** ไม่มี
-
-**Response Example:**
-```
-📋 Available Trading Pairs:
-
-• BTC_THB
-• ETH_THB
-• ADA_THB
-• XRP_THB
-...
-
-Total: 150 active trading pairs
-```
-
-## การตั้งค่า API Keys
-
-### วิธีที่ 1: ใช้ไฟล์ .env
+### 🔐 API Keys Setup
 
 สร้างไฟล์ `.env` ใน root directory:
-```
+
+```bash
 BTK_APIKEY=your_api_key
 BTK_SECRET=your_secret_key
 ```
 
-### วิธีที่ 2: Environment Variables
 
-**Windows (PowerShell):**
-```powershell
-$env:BTK_APIKEY="your_api_key"
-$env:BTK_SECRET="your_secret_key"
-```
+### 🤖 Claude Desktop Integration
 
-**Linux/Mac:**
-```bash
-export BTK_APIKEY="your_api_key"
-export BTK_SECRET="your_secret_key"
-```
-
-## การเชื่อมต่อกับ Claude Desktop
-
-### แบบ HTTP/SSE (แนะนำ)
+<details open>
+<summary><b>HTTP/SSE Mode (แนะนำ)</b></summary>
 
 เพิ่มการตั้งค่าใน Claude Desktop config:
 
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
-
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`  
 **Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 ```json
@@ -210,9 +142,10 @@ export BTK_SECRET="your_secret_key"
 }
 ```
 
-### แบบ Stdio (Legacy)
+</details>
 
-หากต้องการใช้ stdio transport แทน HTTP:
+<details>
+<summary><b>Stdio Mode (Legacy)</b></summary>
 
 ```json
 {
@@ -228,60 +161,73 @@ export BTK_SECRET="your_secret_key"
 }
 ```
 
-**หมายเหตุ:** การตั้งค่า API keys ควรทำผ่าน environment variables ของระบบแทนการใส่ใน config file
+> ⚠️ **หมายเหตุ:** ควรตั้งค่า API keys ผ่าน environment variables แทนการใส่ใน config file
 
-## Project Structure
+</details>
+
+## 📁 Project Structure
 
 ```
 gokub-mcp/
-├── main.go                    # MCP Server entry point (HTTP/SSE)
-├── go.mod                     # Go module dependencies
-├── go.sum                     # Go module checksums
-├── README.md                  # Project documentation
-├── .env                       # API keys (create this file, not in git)
+├── 📄 main.go              # MCP Server entry point (HTTP/SSE)
+├── 📂 prompts/             # Trading prompts
+├── 📂 resources/           # Market resources
+├── 📂 tools/               # MCP tools implementation
+└── 📂 utils/               # Utility functions
 ```
 
-## Security Notes
+## 📊 API Rate Limits
 
-- 🔒 ไม่ควร commit ไฟล์ `.env` ลง git
-- 🔐 ใช้ IP whitelist ใน Bitkub API settings
-- 🛡️ เก็บ API keys ให้ปลอดภัย
-- ⚠️ ไม่แชร์ API keys กับผู้อื่น
+| Category | Rate Limit | Note |
+|----------|------------|------|
+| 📈 Market Data | 100 req/sec | Public endpoints |
+| 💱 Trading Operations | 150-200 req/sec | Authenticated endpoints |
 
-## API Rate Limits
+> 📚 [Bitkub API Docs](https://github.com/bitkub/bitkub-official-api-docs) สำหรับข้อมูลเพิ่มเติม
 
-- Market Data: 100 req/sec
-- Trading Operations: 150-200 req/sec
-- ดูข้อมูลเพิ่มเติมที่ [Bitkub API Docs](https://github.com/bitkub/bitkub-official-api-docs)
+## 🚀 Roadmap
 
-## References
-
-- [MCP-Go Documentation](https://github.com/mark3labs/mcp-go)
-- [Go-Bitkub SDK](https://github.com/dvgamerr-app/go-bitkub)
-- [Bitkub Official API](https://github.com/bitkub/bitkub-official-api-docs)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-
-## Community
-- [Discord](https://discord.gg/9WSA7mMuGm)
-
-## License
-
-MIT License
-
-## Disclaimer
-
-⚠️ This is an unofficial MCP server. Use at your own risk. Always test thoroughly before using in production.
-
-
-## TODO
+### ✅ Completed
 - [x] Bitkub API golang library
-- [ ] เริ่มด้วย Rebalancing Bot ก่อนละกันดูจะ ง่ายสุด (In Progress)
-- [ ] Grid Trading ยังไม่รู้ทำไง ใครรู้สอนหน่อยสิ
+- [x] MCP Server implementation
+- [x] HTTP/SSE transport
+- [x] Basic wallet & market tools
 
-## Features
-- Application GUI (`Windows`, `Linux`, `Mac`)
-- Support Docker Image
-- Support K8s Multiple Deploy
+### 🚧 In Progress
+- [ ] Rebalancing Bot
+- [ ] Grid Trading strategy
+- [ ] Advanced order management
 
-## Ref
-- [Official Documentation for Bitkub APIs](https://github.com/bitkub/bitkub-official-api-docs)
+### 🎯 Planned Features
+- [ ] Docker Image support
+- [ ] Kubernetes deployment
+- [ ] WebSocket real-time data
+- [ ] Trading bot framework
+
+## 📚 References
+
+🔧 [**MCP-Go Framework**](https://github.com/mark3labs/mcp-go)
+
+💎 [**Go-Bitkub SDK**](https://github.com/dvgamerr-app/go-bitkub)
+
+📖 [**Bitkub Official API Docs**](https://github.com/bitkub/bitkub-official-api-docs)
+
+🤖 [**Protocol MCP Spec**](https://modelcontextprotocol.io/)
+
+
+
+## 👥 Community
+
+<div align="center">
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Server-7289DA?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/QDccF497Mw)
+
+**Join our community to discuss, get help, and share your trading strategies!**
+
+**Made with ❤️ by [dvgamerr-app](https://github.com/dvgamerr-app)**
+
+⭐ Star this repo if you find it helpful!
+
+[Report Bug](https://github.com/dvgamerr-app/gokub-mcp/issues) • [Request Feature](https://github.com/dvgamerr-app/gokub-mcp/issues) • [Contribute](https://github.com/dvgamerr-app/gokub-mcp/pulls)
+
+</div>
