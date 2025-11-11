@@ -4,28 +4,9 @@ import (
 	"context"
 	"fmt"
 	"gokub/utils"
-	"strconv"
 
 	"github.com/mark3labs/mcp-go/mcp"
 )
-
-func parseFloat(args map[string]any, key string) (float64, error) {
-	val, ok := args[key]
-	if !ok {
-		return 0, fmt.Errorf("%s is required", key)
-	}
-
-	switch v := val.(type) {
-	case float64:
-		return v, nil
-	case string:
-		return strconv.ParseFloat(v, 64)
-	case int:
-		return float64(v), nil
-	default:
-		return 0, fmt.Errorf("%s must be a number", key)
-	}
-}
 
 type PositionSizeInput struct {
 	Balance     float64 `json:"balance" jsonschema:"description=Total available balance in THB"`
@@ -54,27 +35,29 @@ type PositionSizeOutput struct {
 func NewCalculatePositionSizeTool() mcp.Tool {
 	return mcp.NewTool("calculate_position_size",
 		mcp.WithDescription("Calculate position size based on risk management. Formula: stop_frac = (entry - stop)/entry, position = risk_thb/stop_frac"),
-		mcp.WithString("balance",
+		mcp.WithNumber("balance",
 			mcp.Required(),
 			mcp.Description("Total available balance in THB"),
 		),
-		mcp.WithString("risk_percent",
+		mcp.WithNumber("risk_percent",
 			mcp.Required(),
 			mcp.Description("Risk percentage per trade (e.g. 2 for 2%)"),
 		),
-		mcp.WithString("entry",
+		mcp.WithNumber("entry",
 			mcp.Required(),
 			mcp.Description("Entry price"),
 		),
-		mcp.WithString("stop",
+		mcp.WithNumber("stop",
 			mcp.Required(),
 			mcp.Description("Stop loss price"),
 		),
-		mcp.WithString("maker_fee",
+		mcp.WithNumber("maker_fee",
 			mcp.Description("Maker fee percentage (optional, default 0.25%)"),
+			mcp.DefaultNumber(0.25),
 		),
-		mcp.WithString("taker_fee",
+		mcp.WithNumber("taker_fee",
 			mcp.Description("Taker fee percentage (optional, default 0.25%)"),
+			mcp.DefaultNumber(0.25),
 		),
 	)
 }
@@ -85,23 +68,23 @@ func CalculatePositionSizeHandler(ctx context.Context, request mcp.CallToolReque
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	balance, err := parseFloat(args, "balance")
-	if err != nil || balance <= 0 {
+	balance := utils.GetFloat64Arg(args, "balance")
+	if balance <= 0 {
 		return utils.ErrorResult("balance must be a positive number")
 	}
 
-	riskPercent, err := parseFloat(args, "risk_percent")
-	if err != nil || riskPercent <= 0 || riskPercent > 100 {
+	riskPercent := utils.GetFloat64Arg(args, "risk_percent")
+	if riskPercent <= 0 || riskPercent > 100 {
 		return utils.ErrorResult("risk_percent must be between 0 and 100")
 	}
 
-	entry, err := parseFloat(args, "entry")
-	if err != nil || entry <= 0 {
+	entry := utils.GetFloat64Arg(args, "entry")
+	if entry <= 0 {
 		return utils.ErrorResult("entry price must be positive")
 	}
 
-	stop, err := parseFloat(args, "stop")
-	if err != nil || stop <= 0 {
+	stop := utils.GetFloat64Arg(args, "stop")
+	if stop <= 0 {
 		return utils.ErrorResult("stop price must be positive")
 	}
 
@@ -109,15 +92,8 @@ func CalculatePositionSizeHandler(ctx context.Context, request mcp.CallToolReque
 		return utils.ErrorResult("stop price must be lower than entry price (long position)")
 	}
 
-	makerFee := 0.25
-	if feeVal, err := parseFloat(args, "maker_fee"); err == nil && feeVal > 0 {
-		makerFee = feeVal
-	}
-
-	takerFee := 0.25
-	if feeVal, err := parseFloat(args, "taker_fee"); err == nil && feeVal > 0 {
-		takerFee = feeVal
-	}
+	makerFee := utils.GetFloat64Arg(args, "maker_fee", 0.25)
+	takerFee := utils.GetFloat64Arg(args, "taker_fee", 0.25)
 
 	riskTHB := balance * (riskPercent / 100)
 	stopFrac := (entry - stop) / entry

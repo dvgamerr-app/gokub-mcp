@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"gokub/utils"
+	"sort"
 	"strings"
 
 	"github.com/dvgamerr-app/go-bitkub/market"
@@ -14,35 +15,68 @@ import (
 func NewSymbolsTool() mcp.Tool {
 	return mcp.NewTool("get_symbols",
 		mcp.WithDescription("Get list of all available trading pairs and their info"),
+		mcp.WithNumber("limit",
+			mcp.Required(),
+			mcp.DefaultNumber(40),
+			mcp.Description("Maximum number of symbols to return"),
+		),
 	)
+}
+
+type SymbolInfo struct {
+	Symbol    string  `json:"symbol"`
+	Volume24h float64 `json:"volume_24h"`
+	Bid       float64 `json:"bid"`
+	Ask       float64 `json:"ask"`
+	Spread    float64 `json:"spread"`
 }
 
 func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	log.Debug().Msg("Getting available symbols")
 
-	symbols, err := market.GetSymbols()
+	args, err := utils.ValidateArgs(request.Params.Arguments)
+	if err != nil {
+		log.Warn().Msg("Invalid arguments format")
+		return utils.ErrorResult("invalid arguments")
+	}
+
+	limit := utils.GetIntArg(args, "limit", 40)
+
+	tickers, err := market.GetTicker("")
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to get symbols")
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	activeCount := 0
-	for _, sym := range symbols {
-		if sym.Status == "active" {
-			activeCount++
-		}
+	result := "📋 Symbol: "
+	symbolInfos := []SymbolInfo{}
+
+	for _, sym := range tickers {
+		symbol := strings.Replace(strings.ToUpper(sym.Symbol), "THB_", "", 1)
+		symbol = symbol + "_THB"
+
+		symbolInfos = append(symbolInfos, SymbolInfo{
+			Symbol:    symbol,
+			Volume24h: sym.QuoteVolume,
+			Bid:       sym.HighestBid,
+			Ask:       sym.LowestAsk,
+			Spread:    utils.Round(sym.LowestAsk - sym.HighestBid),
+		})
 	}
 
-	log.Info().Int("total", len(symbols)).Int("active", activeCount).Msg("Retrieved symbols")
+	sort.Slice(symbolInfos, func(i, j int) bool {
+		return symbolInfos[i].Volume24h > symbolInfos[j].Volume24h
+	})
 
-	result := "📋 Pairs:\n"
-	for _, sym := range symbols {
-		if sym.Status == "active" {
-			result += fmt.Sprintf("%s ", strings.ToUpper(sym.Symbol))
-		}
+	if len(symbolInfos) > limit {
+		symbolInfos = symbolInfos[:limit]
 	}
 
-	result += fmt.Sprintf("\n(%d active)\n", activeCount)
+	for _, sym := range symbolInfos {
+		result += fmt.Sprintf("%s ", strings.Replace(strings.ToUpper(sym.Symbol), "_THB", "", 1))
+	}
 
-	return utils.ArtifactsResult(result, symbols)
+	return utils.ArtifactsResult(result, map[string]any{
+		"symbols": symbolInfos,
+	})
 }

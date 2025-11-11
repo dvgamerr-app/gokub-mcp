@@ -29,10 +29,12 @@ func NewCalculateLiquidityDepthTool() mcp.Tool {
 		mcp.WithDescription("Calculate total bid/ask liquidity value (THB) within a percentage range from mid price"),
 		mcp.WithString("symbol",
 			mcp.Required(),
+			mcp.DefaultString("btc_thb"),
 			mcp.Description("Trading pair symbol (e.g., btc_thb, eth_thb)"),
 		),
 		mcp.WithNumber("range_percent",
 			mcp.Description("Percentage range from mid price (default: 1.0 = ±1%)"),
+			mcp.DefaultNumber(1.0),
 		),
 	)
 }
@@ -50,12 +52,7 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 		return utils.ErrorResult("symbol required")
 	}
 
-	rangePercent := 1.0
-	if rangeArg, ok := args["range_percent"]; ok {
-		if rangeVal, ok := rangeArg.(float64); ok {
-			rangePercent = rangeVal
-		}
-	}
+	rangePercent := utils.GetFloat64Arg(args, "range_percent", 1.0)
 
 	symbol = strings.ToLower(symbol)
 	log.Debug().Str("symbol", symbol).Float64("range_percent", rangePercent).Msg("Calculating liquidity depth")

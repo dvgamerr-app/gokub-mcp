@@ -1,6 +1,8 @@
 package utils
 
-import "math"
+import (
+	"math"
+)
 
 func Round(value float64, places ...int) float64 {
 	p := 8

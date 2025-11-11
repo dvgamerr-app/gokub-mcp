@@ -22,6 +22,28 @@ func GetStringArg(args map[string]any, key string) (string, error) {
 
 	return value, nil
 }
+func GetFloat64Arg(args map[string]any, key string, defaultValue ...float64) float64 {
+	if val, ok := args[key]; ok {
+		if fval, ok := val.(float64); ok {
+			return fval
+		}
+	}
+
+	if len(defaultValue) == 0 {
+		return 0
+	}
+
+	return defaultValue[0]
+}
+
+func GetIntArg(args map[string]any, key string, defaultValue int) int {
+	if val, ok := args[key]; ok {
+		if fval, ok := val.(float64); ok {
+			return int(fval)
+		}
+	}
+	return defaultValue
+}
 
 func ValidateArgs(args any) (map[string]any, error) {
 	argsMap, ok := args.(map[string]any)

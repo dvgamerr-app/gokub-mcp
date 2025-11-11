@@ -38,8 +38,6 @@ func WalletBalanceHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 		return utils.ErrorResult(fmt.Sprintf("get_wallet_balance: %v", err))
 	}
 
-	log.Info().Int("currencies", len(balances)).Msg("Retrieved wallet balances")
-
 	var currencyBalances []CurrencyBalance
 	totalTHB := 0.0
 

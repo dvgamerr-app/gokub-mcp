@@ -93,20 +93,25 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	thbSymbols := []string{}
-	for _, sym := range symbols {
-		if sym.Status == "active" && strings.HasSuffix(sym.Symbol, "_thb") {
-			thbSymbols = append(thbSymbols, sym.Symbol)
-		}
-	}
-
-	log.Info().Int("thb_pairs", len(thbSymbols)).Msg("Screening THB pairs")
+	log.Info().Int("thb_pairs", len(symbols)).Msg("Screening THB pairs")
 
 	results := []ScreenerResult{}
+	stats := map[string]int{
+		"total":       len(symbols),
+		"ticker_fail": 0,
+		"low_volume":  0,
+		"no_bid_ask":  0,
+		"high_spread": 0,
+		"depth_fail":  0,
+		"low_depth":   0,
+		"passed":      0,
+	}
 
-	for _, symbol := range thbSymbols {
-		tickers, err := market.GetTicker(symbol)
+	for _, symbol := range symbols {
+		tickers, err := market.GetTicker(symbol.Symbol)
 		if err != nil || len(tickers) == 0 {
+			stats["ticker_fail"]++
+			log.Debug().Str("symbol", symbol.Symbol).Msg("Failed to get ticker")
 			continue
 		}
 
@@ -114,6 +119,8 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		volume24h := ticker.BaseVolume
 
 		if volume24h < minVolume {
+			stats["low_volume"]++
+			log.Debug().Str("symbol", symbol.Symbol).Float64("volume", volume24h).Msg("Volume too low")
 			continue
 		}
 
@@ -121,6 +128,8 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		ask := ticker.LowestAsk
 
 		if bid <= 0 || ask <= 0 {
+			stats["no_bid_ask"]++
+			log.Debug().Str("symbol", symbol.Symbol).Float64("bid", bid).Float64("ask", ask).Msg("No bid/ask")
 			continue
 		}
 
@@ -129,11 +138,15 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		spreadPercent := (spread / mid) * 100
 
 		if spreadPercent > maxSpread {
+			stats["high_spread"]++
+			log.Debug().Str("symbol", symbol.Symbol).Float64("spread", spreadPercent).Msg("Spread too high")
 			continue
 		}
 
-		depth, err := market.GetDepth(symbol, 100)
+		depth, err := market.GetDepth(symbol.Symbol, 100)
 		if err != nil {
+			stats["depth_fail"]++
+			log.Debug().Str("symbol", symbol.Symbol).Err(err).Msg("Failed to get depth")
 			continue
 		}
 
@@ -162,6 +175,8 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		totalLiquidity := bidLiquidity + askLiquidity
 
 		if totalLiquidity < minDepth {
+			stats["low_depth"]++
+			log.Debug().Str("symbol", symbol.Symbol).Float64("depth", totalLiquidity).Msg("Liquidity too low")
 			continue
 		}
 
@@ -172,7 +187,7 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		score := (volumeScore * 0.4) + (spreadScore * 0.3) + (liquidityScore * 0.3)
 
 		results = append(results, ScreenerResult{
-			Symbol:         symbol,
+			Symbol:         symbol.Symbol,
 			Volume24h:      utils.Round(volume24h),
 			Spread:         utils.Round(spread),
 			SpreadPercent:  utils.Round(spreadPercent, 2),
@@ -183,10 +198,7 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 			LastPrice:      utils.Round(ticker.Last),
 		})
 
-		log.Debug().
-			Str("symbol", symbol).
-			Float64("score", score).
-			Msg("Symbol passed screening")
+		stats["passed"]++
 	}
 
 	sort.Slice(results, func(i, j int) bool {
@@ -198,8 +210,15 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	log.Info().
-		Int("passed", len(results)).
-		Int("total_checked", len(thbSymbols)).
+		Int("total", stats["total"]).
+		Int("ticker_fail", stats["ticker_fail"]).
+		Int("low_volume", stats["low_volume"]).
+		Int("no_bid_ask", stats["no_bid_ask"]).
+		Int("high_spread", stats["high_spread"]).
+		Int("depth_fail", stats["depth_fail"]).
+		Int("low_depth", stats["low_depth"]).
+		Int("passed", stats["passed"]).
+		Int("returned", len(results)).
 		Msg("Market screening completed")
 
 	result := "🔍 Market Screener Results:\n"
