@@ -3,10 +3,13 @@ package utils
 import (
 	"fmt"
 
+	jsoniter "github.com/json-iterator/go"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-func GetStringArg(args map[string]interface{}, key string) (string, error) {
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
+
+func GetStringArg(args map[string]any, key string) (string, error) {
 	arg, ok := args[key]
 	if !ok {
 		return "", fmt.Errorf("%s parameter is required", key)
@@ -20,8 +23,8 @@ func GetStringArg(args map[string]interface{}, key string) (string, error) {
 	return value, nil
 }
 
-func ValidateArgs(args interface{}) (map[string]interface{}, error) {
-	argsMap, ok := args.(map[string]interface{})
+func ValidateArgs(args any) (map[string]any, error) {
+	argsMap, ok := args.(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("invalid arguments format")
 	}
@@ -34,4 +37,12 @@ func ErrorResult(err string) (*mcp.CallToolResult, error) {
 
 func TextResult(message string) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(message), nil
+}
+
+func MustJSON(v any) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
 }
