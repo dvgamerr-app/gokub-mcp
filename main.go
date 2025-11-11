@@ -67,6 +67,7 @@ func main() {
 	s.AddTool(tools.NewMarketDepthTool(), tools.MarketDepthHandler)
 	s.AddTool(tools.NewOpenOrdersTool(), tools.OpenOrdersHandler)
 	s.AddTool(tools.NewSymbolsTool(), tools.SymbolsHandler)
+	s.AddTool(tools.NewFeeScheduleTool(), tools.FeeScheduleHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)
