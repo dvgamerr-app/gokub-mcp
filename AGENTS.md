@@ -1,7 +1,17 @@
 # AGENTS.md
 
 ## Project Overview
-Bitkub MCP Server - Model Context Protocol server for Bitkub Cryptocurrency Exchange API
+Bitkub MCP Server - Model Context Protocol server for the Bitkub Cryptocurrency Exchange API
+
+## Folder Structure
+
+```
+gokub-mcp/
+  tools/     # MCP tool implementations
+  prompts/   # Trading prompts
+  resources/ # Market resources
+  utils/     # Utility functions
+```
 
 ## Guidelines
 
@@ -9,3 +19,5 @@ Bitkub MCP Server - Model Context Protocol server for Bitkub Cryptocurrency Exch
 - No inline documentation
 - Always use or modify existing code before creating new files
 - Keep code clean and self-explanatory
+- Do not run tests after implementation; just provide the command to run tests
+- Do not provide a summary after finishing
