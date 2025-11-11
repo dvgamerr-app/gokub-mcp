@@ -9,7 +9,7 @@ require (
 )
 
 require (
-	github.com/dvgamerr-app/go-bitkub v1.0.0
+	github.com/dvgamerr-app/go-bitkub v1.2.0
 	github.com/rs/zerolog v1.34.0
 )
 
