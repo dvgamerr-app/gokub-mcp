@@ -69,5 +69,5 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		result += fmt.Sprintf("%.2f | %.8f\n", depth.Bids[i][0], depth.Bids[i][1])
 	}
 
-	return utils.TextResult(result)
+	return utils.ArtifactsResult(result, depth)
 }

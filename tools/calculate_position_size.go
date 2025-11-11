@@ -148,7 +148,7 @@ func CalculatePositionSizeHandler(ctx context.Context, request mcp.CallToolReque
 		Float64("take_profit_2R", feeAdjustedTP).
 		Msg("Calculated position size")
 
-	contents := fmt.Sprintf(`📊 Position Size Calculation:
+	return utils.ArtifactsResult(fmt.Sprintf(`📊 Position Size Calculation:
 • Balance: %.2f THB
 • Risk: %.2f%% = %.2f THB
 • Entry: %.2f | Stop: %.2f
@@ -170,15 +170,5 @@ func CalculatePositionSizeHandler(ctx context.Context, request mcp.CallToolReque
 		makerFee,
 		takerFee,
 		totalFeeFrac*100,
-	)
-
-	return &mcp.CallToolResult{
-		Content: []mcp.Content{
-			mcp.TextContent{
-				Type: "text",
-				Text: contents,
-			},
-		},
-		StructuredContent: output,
-	}, nil
+	), output)
 }

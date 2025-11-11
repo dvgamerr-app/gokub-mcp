@@ -39,6 +39,15 @@ func TextResult(message string) (*mcp.CallToolResult, error) {
 	return mcp.NewToolResultText(message), nil
 }
 
+func ArtifactsResult(contents string, args any) (*mcp.CallToolResult, error) {
+	return &mcp.CallToolResult{
+		Content: []mcp.Content{
+			mcp.TextContent{Type: "text", Text: contents},
+		},
+		StructuredContent: args,
+	}, nil
+}
+
 func MustJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {

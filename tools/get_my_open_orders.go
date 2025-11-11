@@ -65,5 +65,5 @@ func OpenOrdersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		result += "\n"
 	}
 
-	return utils.TextResult(result)
+	return utils.ArtifactsResult(result, orders)
 }
