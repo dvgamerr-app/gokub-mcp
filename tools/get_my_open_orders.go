@@ -44,8 +44,6 @@ func OpenOrdersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	log.Info().Str("symbol", symbol).Int("count", len(orders)).Msg("Retrieved open orders")
-
 	if len(orders) == 0 {
 		log.Debug().Str("symbol", symbol).Msg("No open orders found")
 		return utils.TextResult(fmt.Sprintf("No orders: %s", strings.ToUpper(symbol)))

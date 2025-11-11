@@ -11,6 +11,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type CurrencyBalance struct {
+	Currency  string  `json:"currency"`
+	Total     float64 `json:"total"`
+	Available float64 `json:"available"`
+	Reserved  float64 `json:"reserved"`
+}
+
+type WalletBalanceOutput struct {
+	Balances []CurrencyBalance `json:"balances"`
+	TotalTHB float64           `json:"total_thb"`
+}
+
 func NewWalletBalanceTool() mcp.Tool {
 	return mcp.NewTool("get_wallet_balance",
 		mcp.WithDescription("Get wallet balance from Bitkub account - returns available and reserved balance for all currencies"),
@@ -28,14 +40,18 @@ func WalletBalanceHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 	log.Info().Int("currencies", len(balances)).Msg("Retrieved wallet balances")
 
-	result := "Name: Total (Available+Reserved)\n"
+	var currencyBalances []CurrencyBalance
 	totalTHB := 0.0
 
 	for currency, balance := range balances {
 		if balance.Available > 0 || balance.Reserved > 0 {
 			total := balance.Available + balance.Reserved
-			result += fmt.Sprintf("%s: %.8f (%.8f+%.8f)\n",
-				strings.ToUpper(currency), total, balance.Available, balance.Reserved)
+			currencyBalances = append(currencyBalances, CurrencyBalance{
+				Currency:  strings.ToUpper(currency),
+				Total:     utils.Round(total, 8),
+				Available: utils.Round(balance.Available, 8),
+				Reserved:  utils.Round(balance.Reserved, 8),
+			})
 
 			if strings.ToUpper(currency) == "THB" {
 				totalTHB = total
@@ -43,9 +59,20 @@ func WalletBalanceHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 		}
 	}
 
-	if totalTHB > 0 {
-		result += fmt.Sprintf("Total: %.2f THB\n", totalTHB)
+	output := WalletBalanceOutput{
+		Balances: currencyBalances,
+		TotalTHB: utils.Round(totalTHB),
 	}
 
-	return utils.TextResult(result)
+	result := "Name: Total (Available+Reserved)\n"
+	for _, cb := range output.Balances {
+		result += fmt.Sprintf("%s: %.8f (%.8f+%.8f)\n",
+			cb.Currency, cb.Total, cb.Available, cb.Reserved)
+	}
+
+	if output.TotalTHB > 0 {
+		result += fmt.Sprintf("Total: %.2f THB\n", output.TotalTHB)
+	}
+
+	return utils.ArtifactsResult(result, output)
 }

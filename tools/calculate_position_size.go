@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/rs/zerolog/log"
 )
 
 func parseFloat(args map[string]any, key string) (float64, error) {
@@ -38,11 +37,18 @@ type PositionSizeInput struct {
 }
 
 type PositionSizeOutput struct {
+	Balance          float64 `json:"balance"`
+	RiskPercent      float64 `json:"risk_percent"`
 	RiskTHB          float64 `json:"risk_thb"`
+	Entry            float64 `json:"entry"`
+	Stop             float64 `json:"stop"`
 	StopFrac         float64 `json:"stop_frac"`
 	PositionValueTHB float64 `json:"position_value_thb"`
 	Qty              float64 `json:"qty"`
 	TakeProfit2R     float64 `json:"take_profit_2R"`
+	MakerFee         float64 `json:"maker_fee"`
+	TakerFee         float64 `json:"taker_fee"`
+	TotalFee         float64 `json:"total_fee"`
 }
 
 func NewCalculatePositionSizeTool() mcp.Tool {
@@ -129,24 +135,19 @@ func CalculatePositionSizeHandler(ctx context.Context, request mcp.CallToolReque
 	feeAdjustedTP := takeProfitPrice * (1 + totalFeeFrac)
 
 	output := PositionSizeOutput{
-		RiskTHB:          riskTHB,
-		StopFrac:         stopFrac,
-		PositionValueTHB: positionValueTHB,
-		Qty:              qty,
-		TakeProfit2R:     feeAdjustedTP,
+		Balance:          utils.Round(balance),
+		RiskPercent:      utils.Round(riskPercent, 2),
+		RiskTHB:          utils.Round(riskTHB),
+		Entry:            utils.Round(entry),
+		Stop:             utils.Round(stop),
+		StopFrac:         utils.Round(stopFrac),
+		PositionValueTHB: utils.Round(positionValueTHB),
+		Qty:              utils.Round(qty),
+		TakeProfit2R:     utils.Round(feeAdjustedTP),
+		MakerFee:         utils.Round(makerFee, 2),
+		TakerFee:         utils.Round(takerFee, 2),
+		TotalFee:         utils.Round(totalFeeFrac*100, 2),
 	}
-
-	log.Info().
-		Float64("balance", balance).
-		Float64("risk_percent", riskPercent).
-		Float64("entry", entry).
-		Float64("stop", stop).
-		Float64("risk_thb", riskTHB).
-		Float64("stop_frac", stopFrac).
-		Float64("position_value_thb", positionValueTHB).
-		Float64("qty", qty).
-		Float64("take_profit_2R", feeAdjustedTP).
-		Msg("Calculated position size")
 
 	return utils.ArtifactsResult(fmt.Sprintf(`📊 Position Size Calculation:
 • Balance: %.2f THB
@@ -157,18 +158,18 @@ func CalculatePositionSizeHandler(ctx context.Context, request mcp.CallToolReque
 • Quantity: %.6f coins
 • Take Profit (2R): %.2f
 • Fees: Maker %.2f%% + Taker %.2f%% = %.2f%%`,
-		balance,
-		riskPercent,
-		riskTHB,
-		entry,
-		stop,
-		stopFrac*100,
-		stopFrac,
-		positionValueTHB,
-		qty,
-		feeAdjustedTP,
-		makerFee,
-		takerFee,
-		totalFeeFrac*100,
+		output.Balance,
+		output.RiskPercent,
+		output.RiskTHB,
+		output.Entry,
+		output.Stop,
+		utils.Round(output.StopFrac*100, 2),
+		output.StopFrac,
+		output.PositionValueTHB,
+		output.Qty,
+		output.TakeProfit2R,
+		output.MakerFee,
+		output.TakerFee,
+		output.TotalFee,
 	), output)
 }

@@ -44,5 +44,5 @@ func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 
 	result += fmt.Sprintf("\n(%d active)\n", activeCount)
 
-	return utils.TextResult(result)
+	return utils.ArtifactsResult(result, symbols)
 }

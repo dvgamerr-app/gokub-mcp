@@ -56,8 +56,6 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	log.Info().Str("symbol", symbol).Int("asks", len(depth.Asks)).Int("bids", len(depth.Bids)).Msg("Retrieved market depth")
-
 	result := fmt.Sprintf("📊 %s Depth:\nASK:\n", strings.ToUpper(symbol))
 	for i := len(depth.Asks) - 1; i >= 0 && i >= len(depth.Asks)-5; i-- {
 		result += fmt.Sprintf("%.2f | %.8f\n", depth.Asks[i][0], depth.Asks[i][1])

@@ -33,22 +33,15 @@ func FeeScheduleHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	feeSchedule := determineFeeSchedule(credits)
-
-	log.Info().
-		Float64("credits", credits).
-		Str("level", feeSchedule.Level).
-		Float64("maker", feeSchedule.MakerFee).
-		Float64("taker", feeSchedule.TakerFee).
-		Msg("Retrieved fee schedule")
+	fee := determineFeeSchedule(credits)
 
 	return utils.ArtifactsResult(fmt.Sprintf(`💰 Fee Schedule: Trading Credits %.2f | Level: %s | Maker Fee: %.2f%% | Taker Fee: %.2f%% | %s`,
-		feeSchedule.TradingCredits,
-		feeSchedule.Level,
-		feeSchedule.MakerFee*100,
-		feeSchedule.TakerFee*100,
-		feeSchedule.Description,
-	), feeSchedule)
+		fee.TradingCredits,
+		fee.Level,
+		fee.MakerFee*100,
+		fee.TakerFee*100,
+		fee.Description,
+	), fee)
 }
 
 func determineFeeSchedule(credits float64) FeeSchedule {

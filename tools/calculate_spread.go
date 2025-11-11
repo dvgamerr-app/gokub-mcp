@@ -11,6 +11,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type SpreadOutput struct {
+	Symbol        string  `json:"symbol"`
+	Bid           float64 `json:"bid"`
+	Ask           float64 `json:"ask"`
+	Mid           float64 `json:"mid"`
+	Spread        float64 `json:"spread"`
+	SpreadPercent float64 `json:"spread_percent"`
+}
+
 func NewCalculateSpreadTool() mcp.Tool {
 	return mcp.NewTool("calculate_spread",
 		mcp.WithDescription("Calculate bid-ask spread percentage and mid price for a symbol"),
@@ -49,39 +58,32 @@ func CalculateSpreadHandler(ctx context.Context, request mcp.CallToolRequest) (*
 	}
 
 	ticker := tickers[0]
-	bid := utils.Round(ticker.HighestBid)
-	ask := utils.Round(ticker.LowestAsk)
+	bid := ticker.HighestBid
+	ask := ticker.LowestAsk
 
 	if bid <= 0 || ask <= 0 {
 		log.Warn().Str("symbol", symbol).Msg("Invalid bid/ask prices")
 		return utils.ErrorResult("invalid bid/ask prices")
 	}
 
-	mid := utils.Round((bid + ask) / 2)
-	spread := utils.Round(ask - bid)
-	spreadPercent := utils.Round((spread/mid)*100, 2)
+	mid := (bid + ask) / 2
+	spread := ask - bid
+	spreadPercent := (spread / mid) * 100
 
-	log.Info().
-		Str("symbol", symbol).
-		Float64("spread_pct", spreadPercent).
-		Float64("bid", bid).
-		Float64("ask", ask).
-		Msg("Calculated spread")
-
-	result := fmt.Sprintf("📊 %s Spread:\n", strings.ToUpper(symbol))
-	result += fmt.Sprintf("Bid: %.2f THB\n", bid)
-	result += fmt.Sprintf("Ask: %.2f THB\n", ask)
-	result += fmt.Sprintf("Mid: %.2f THB\n", mid)
-	result += fmt.Sprintf("Spread: %.2f THB (%.4f%%)", spread, spreadPercent)
-
-	data := map[string]interface{}{
-		"symbol":         symbol,
-		"bid":            bid,
-		"ask":            ask,
-		"mid":            mid,
-		"spread":         spread,
-		"spread_percent": spreadPercent,
+	output := SpreadOutput{
+		Symbol:        symbol,
+		Bid:           utils.Round(bid),
+		Ask:           utils.Round(ask),
+		Mid:           utils.Round(mid),
+		Spread:        utils.Round(spread),
+		SpreadPercent: utils.Round(spreadPercent, 2),
 	}
 
-	return utils.ArtifactsResult(result, data)
+	result := fmt.Sprintf("📊 %s Spread:\n", strings.ToUpper(output.Symbol))
+	result += fmt.Sprintf("Bid: %.2f THB\n", output.Bid)
+	result += fmt.Sprintf("Ask: %.2f THB\n", output.Ask)
+	result += fmt.Sprintf("Mid: %.2f THB\n", output.Mid)
+	result += fmt.Sprintf("Spread: %.2f THB (%.4f%%)", output.Spread, output.SpreadPercent)
+
+	return utils.ArtifactsResult(result, output)
 }

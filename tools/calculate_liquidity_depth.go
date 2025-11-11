@@ -11,6 +11,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type LiquidityDepthOutput struct {
+	Symbol         string  `json:"symbol"`
+	MidPrice       float64 `json:"mid_price"`
+	RangePercent   float64 `json:"range_percent"`
+	LowerBound     float64 `json:"lower_bound"`
+	UpperBound     float64 `json:"upper_bound"`
+	BidLiquidity   float64 `json:"bid_liquidity"`
+	BidOrders      int     `json:"bid_orders"`
+	AskLiquidity   float64 `json:"ask_liquidity"`
+	AskOrders      int     `json:"ask_orders"`
+	TotalLiquidity float64 `json:"total_liquidity"`
+}
+
 func NewCalculateLiquidityDepthTool() mcp.Tool {
 	return mcp.NewTool("calculate_liquidity_depth",
 		mcp.WithDescription("Calculate total bid/ask liquidity value (THB) within a percentage range from mid price"),
@@ -59,7 +72,7 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 	}
 
 	ticker := tickers[0]
-	mid := utils.Round((ticker.HighestBid + ticker.LowestAsk) / 2)
+	mid := (ticker.HighestBid + ticker.LowestAsk) / 2
 
 	depth, err := market.GetDepth(symbol, 100)
 	if err != nil {
@@ -67,8 +80,8 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 	}
 
-	upperBound := utils.Round(mid * (1 + rangePercent/100))
-	lowerBound := utils.Round(mid * (1 - rangePercent/100))
+	upperBound := mid * (1 + rangePercent/100)
+	lowerBound := mid * (1 - rangePercent/100)
 
 	bidLiquidity := 0.0
 	bidCount := 0
@@ -76,7 +89,7 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 		price := bid[0]
 		amount := bid[1]
 		if price >= lowerBound {
-			bidLiquidity = utils.Round(bidLiquidity + price*amount)
+			bidLiquidity += price * amount
 			bidCount++
 		}
 	}
@@ -87,43 +100,36 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 		price := ask[0]
 		amount := ask[1]
 		if price <= upperBound {
-			askLiquidity = utils.Round(askLiquidity + price*amount)
+			askLiquidity += price * amount
 			askCount++
 		}
 	}
 
-	totalLiquidity := utils.Round(bidLiquidity + askLiquidity)
+	totalLiquidity := bidLiquidity + askLiquidity
 
-	log.Info().
-		Str("symbol", symbol).
-		Float64("bid_liquidity", bidLiquidity).
-		Float64("ask_liquidity", askLiquidity).
-		Float64("total", totalLiquidity).
-		Msg("Calculated liquidity depth")
-
-	result := fmt.Sprintf("💧 %s Liquidity (±%.1f%%):\n", strings.ToUpper(symbol), rangePercent)
-	result += fmt.Sprintf("Mid Price: %.2f THB\n", mid)
-	result += fmt.Sprintf("Range: %.2f - %.2f THB\n", lowerBound, upperBound)
-	result += "\nBid Side:\n"
-	result += fmt.Sprintf("  Liquidity: %.2f THB\n", bidLiquidity)
-	result += fmt.Sprintf("  Orders: %d\n", bidCount)
-	result += "\nAsk Side:\n"
-	result += fmt.Sprintf("  Liquidity: %.2f THB\n", askLiquidity)
-	result += fmt.Sprintf("  Orders: %d\n", askCount)
-	result += fmt.Sprintf("\nTotal: %.2f THB", totalLiquidity)
-
-	data := map[string]interface{}{
-		"symbol":          symbol,
-		"mid_price":       mid,
-		"range_percent":   rangePercent,
-		"lower_bound":     lowerBound,
-		"upper_bound":     upperBound,
-		"bid_liquidity":   bidLiquidity,
-		"bid_orders":      bidCount,
-		"ask_liquidity":   askLiquidity,
-		"ask_orders":      askCount,
-		"total_liquidity": totalLiquidity,
+	output := LiquidityDepthOutput{
+		Symbol:         symbol,
+		MidPrice:       utils.Round(mid),
+		RangePercent:   rangePercent,
+		LowerBound:     utils.Round(lowerBound),
+		UpperBound:     utils.Round(upperBound),
+		BidLiquidity:   utils.Round(bidLiquidity),
+		BidOrders:      bidCount,
+		AskLiquidity:   utils.Round(askLiquidity),
+		AskOrders:      askCount,
+		TotalLiquidity: utils.Round(totalLiquidity),
 	}
 
-	return utils.ArtifactsResult(result, data)
+	result := fmt.Sprintf("💧 %s Liquidity (±%.1f%%):\n", strings.ToUpper(output.Symbol), output.RangePercent)
+	result += fmt.Sprintf("Mid Price: %.2f THB\n", output.MidPrice)
+	result += fmt.Sprintf("Range: %.2f - %.2f THB\n", output.LowerBound, output.UpperBound)
+	result += "\nBid Side:\n"
+	result += fmt.Sprintf("  Liquidity: %.2f THB\n", output.BidLiquidity)
+	result += fmt.Sprintf("  Orders: %d\n", output.BidOrders)
+	result += "\nAsk Side:\n"
+	result += fmt.Sprintf("  Liquidity: %.2f THB\n", output.AskLiquidity)
+	result += fmt.Sprintf("  Orders: %d\n", output.AskOrders)
+	result += fmt.Sprintf("\nTotal: %.2f THB", output.TotalLiquidity)
+
+	return utils.ArtifactsResult(result, output)
 }

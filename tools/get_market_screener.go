@@ -111,22 +111,22 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 
 		ticker := tickers[0]
-		volume24h := utils.Round(ticker.BaseVolume)
+		volume24h := ticker.BaseVolume
 
 		if volume24h < minVolume {
 			continue
 		}
 
-		bid := utils.Round(ticker.HighestBid)
-		ask := utils.Round(ticker.LowestAsk)
+		bid := ticker.HighestBid
+		ask := ticker.LowestAsk
 
 		if bid <= 0 || ask <= 0 {
 			continue
 		}
 
-		mid := utils.Round((bid + ask) / 2)
-		spread := utils.Round(ask - bid)
-		spreadPercent := utils.Round((spread/mid)*100, 2)
+		mid := (bid + ask) / 2
+		spread := ask - bid
+		spreadPercent := (spread / mid) * 100
 
 		if spreadPercent > maxSpread {
 			continue
@@ -138,15 +138,15 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 
 		rangePercent := 1.0
-		upperBound := utils.Round(mid * (1 + rangePercent/100))
-		lowerBound := utils.Round(mid * (1 - rangePercent/100))
+		upperBound := mid * (1 + rangePercent/100)
+		lowerBound := mid * (1 - rangePercent/100)
 
 		bidLiquidity := 0.0
 		for _, bid := range depth.Bids {
 			price := bid[0]
 			amount := bid[1]
 			if price >= lowerBound {
-				bidLiquidity = utils.Round(bidLiquidity + price*amount)
+				bidLiquidity += price * amount
 			}
 		}
 
@@ -155,31 +155,31 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 			price := ask[0]
 			amount := ask[1]
 			if price <= upperBound {
-				askLiquidity = utils.Round(askLiquidity + price*amount)
+				askLiquidity += price * amount
 			}
 		}
 
-		totalLiquidity := utils.Round(bidLiquidity + askLiquidity)
+		totalLiquidity := bidLiquidity + askLiquidity
 
 		if totalLiquidity < minDepth {
 			continue
 		}
 
-		volumeScore := utils.Round(volume24h / 10000000)
-		spreadScore := utils.Round((maxSpread-spreadPercent)/maxSpread*100, 2)
-		liquidityScore := utils.Round(totalLiquidity / 100000)
+		volumeScore := volume24h / 10000000
+		spreadScore := (maxSpread - spreadPercent) / maxSpread * 100
+		liquidityScore := totalLiquidity / 100000
 
-		score := utils.Round((volumeScore*0.4)+(spreadScore*0.3)+(liquidityScore*0.3), 2)
+		score := (volumeScore * 0.4) + (spreadScore * 0.3) + (liquidityScore * 0.3)
 
 		results = append(results, ScreenerResult{
 			Symbol:         symbol,
-			Volume24h:      volume24h,
-			Spread:         spread,
-			SpreadPercent:  spreadPercent,
-			BidLiquidity:   bidLiquidity,
-			AskLiquidity:   askLiquidity,
-			TotalLiquidity: totalLiquidity,
-			Score:          score,
+			Volume24h:      utils.Round(volume24h),
+			Spread:         utils.Round(spread),
+			SpreadPercent:  utils.Round(spreadPercent, 2),
+			BidLiquidity:   utils.Round(bidLiquidity),
+			AskLiquidity:   utils.Round(askLiquidity),
+			TotalLiquidity: utils.Round(totalLiquidity),
+			Score:          utils.Round(score, 2),
 			LastPrice:      utils.Round(ticker.Last),
 		})
 
@@ -218,8 +218,8 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 	}
 
-	data := map[string]interface{}{
-		"filters": map[string]interface{}{
+	data := map[string]any{
+		"filters": map[string]any{
 			"min_volume_24h": minVolume,
 			"max_spread":     maxSpread,
 			"min_depth":      minDepth,

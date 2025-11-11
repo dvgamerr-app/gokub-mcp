@@ -48,12 +48,10 @@ func TickerHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 		return utils.ErrorResult("no data: " + symbol)
 	}
 
-	log.Info().Str("symbol", symbol).Float64("last_price", tickers[0].Last).Msg("Retrieved ticker data")
-
 	ticker := tickers[0]
 	result := fmt.Sprintf("Price: %.2f THB ", ticker.Last)
 	result += fmt.Sprintf("24h: %.2f%% | H:%.2f L:%.2f ", ticker.PercentChange, ticker.High24hr, ticker.Low24hr)
 	result += fmt.Sprintf("Vol: %.2f | Bid:%.2f Ask:%.2f", ticker.BaseVolume, ticker.HighestBid, ticker.LowestAsk)
 
-	return utils.TextResult(result)
+	return utils.ArtifactsResult(result, ticker)
 }
