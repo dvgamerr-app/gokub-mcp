@@ -20,4 +20,4 @@ gokub-mcp/
 - Always use or modify existing code before creating new files
 - Keep code clean and self-explanatory
 - Do not run tests after implementation; just provide the command to run tests
-- Do not provide a summary after finishing
+- Do not provide a implementation summary after finishing
