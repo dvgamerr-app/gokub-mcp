@@ -74,6 +74,10 @@ func main() {
 	s.AddTool(tools.NewGetMarketScreenerTool(), tools.GetMarketScreenerHandler)
 	s.AddTool(tools.NewHistoricalCandlesTool(), tools.HistoricalCandlesHandler)
 	s.AddTool(tools.NewCalculateEMATool(), tools.CalculateEMAHandler)
+	s.AddTool(tools.NewCalculateROCTool(), tools.CalculateROCHandler)
+	s.AddTool(tools.NewCalculateATRTool(), tools.CalculateATRHandler)
+	s.AddTool(tools.NewCalculateRSITool(), tools.CalculateRSIHandler)
+	s.AddTool(tools.NewCalculateRelativeStrengthRankTool(), tools.CalculateRelativeStrengthRankHandler)
 	s.AddTool(tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
