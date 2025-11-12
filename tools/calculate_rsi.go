@@ -25,6 +25,7 @@ func NewCalculateRSITool() mcp.Tool {
 		),
 		mcp.WithNumber("period",
 			mcp.Required(),
+			mcp.DefaultNumber(14),
 			mcp.Description("RSI period (default: 14)"),
 		),
 	)

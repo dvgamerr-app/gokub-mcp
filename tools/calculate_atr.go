@@ -33,6 +33,7 @@ func NewCalculateATRTool() mcp.Tool {
 		),
 		mcp.WithNumber("period",
 			mcp.Required(),
+			mcp.DefaultNumber(14),
 			mcp.Description("ATR period (default: 14)"),
 		),
 	)

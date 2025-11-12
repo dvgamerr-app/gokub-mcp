@@ -31,10 +31,11 @@ func NewCalculateRelativeStrengthRankTool() mcp.Tool {
 			mcp.Description("Object with symbol names as keys and price arrays as values"),
 		),
 		mcp.WithNumber("period",
+			mcp.DefaultNumber(14),
 			mcp.Description("ROC period for calculation (default: 14)"),
 		),
 		mcp.WithString("benchmark",
-			mcp.Description("Benchmark symbol for comparison (default: btc_thb)"),
+			mcp.Description("Benchmark symbol for comparison"),
 		),
 	)
 }
