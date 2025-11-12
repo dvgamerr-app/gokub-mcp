@@ -78,6 +78,8 @@ func main() {
 	s.AddTool(tools.NewCalculateATRTool(), tools.CalculateATRHandler)
 	s.AddTool(tools.NewCalculateRSITool(), tools.CalculateRSIHandler)
 	s.AddTool(tools.NewCalculateRelativeStrengthRankTool(), tools.CalculateRelativeStrengthRankHandler)
+	s.AddTool(tools.NewDetectBreakoutSignalTool(), tools.DetectBreakoutSignalHandler)
+	s.AddTool(tools.NewDetectPullbackSignalTool(), tools.DetectPullbackSignalHandler)
 	s.AddTool(tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
