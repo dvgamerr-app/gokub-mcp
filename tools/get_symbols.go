@@ -14,11 +14,11 @@ import (
 
 func NewSymbolsTool() mcp.Tool {
 	return mcp.NewTool("get_symbols",
-		mcp.WithDescription("Get list of all available trading pairs and their info"),
+		mcp.WithDescription("Get list of available trading pairs sorted by 24h volume (descending), limited to top N symbols"),
 		mcp.WithNumber("limit",
 			mcp.Required(),
 			mcp.DefaultNumber(40),
-			mcp.Description("Maximum number of symbols to return"),
+			mcp.Description("Maximum number of top symbols to return (sorted by 24h volume)"),
 		),
 	)
 }

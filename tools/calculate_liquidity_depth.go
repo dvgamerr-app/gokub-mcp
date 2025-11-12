@@ -29,7 +29,6 @@ func NewCalculateLiquidityDepthTool() mcp.Tool {
 		mcp.WithDescription("Calculate total bid/ask liquidity value (THB) within a percentage range from mid price"),
 		mcp.WithString("symbol",
 			mcp.Required(),
-			mcp.DefaultString("btc_thb"),
 			mcp.Description("Trading pair symbol (e.g., btc_thb, eth_thb)"),
 		),
 		mcp.WithNumber("range_percent",

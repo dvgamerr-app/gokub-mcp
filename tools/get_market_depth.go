@@ -20,6 +20,7 @@ func NewMarketDepthTool() mcp.Tool {
 		),
 		mcp.WithNumber("limit",
 			mcp.Description("Number of orders to return (default: 10, max: 100)"),
+			mcp.DefaultNumber(10),
 		),
 	)
 }
@@ -37,15 +38,7 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		return utils.ErrorResult("symbol required")
 	}
 
-	limit := 10
-	if limitArg, ok := args["limit"]; ok {
-		if limitVal, ok := limitArg.(float64); ok {
-			limit = int(limitVal)
-			if limit > 100 {
-				limit = 100
-			}
-		}
-	}
+	limit := min(utils.GetIntArg(args, "limit", 10), 100)
 
 	symbol = strings.ToLower(symbol)
 	log.Debug().Str("symbol", symbol).Int("limit", limit).Msg("Getting market depth")

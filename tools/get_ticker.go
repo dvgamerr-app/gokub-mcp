@@ -13,7 +13,7 @@ import (
 
 func NewTickerTool() mcp.Tool {
 	return mcp.NewTool("get_ticker",
-		mcp.WithDescription("Get current market ticker/price for a cryptocurrency symbol (e.g., btc_thb, eth_thb)"),
+		mcp.WithDescription(`Get current market ticker/price for a cryptocurrency symbol (e.g., btc_thb, eth_thb)`),
 		mcp.WithString("symbol",
 			mcp.Required(),
 			mcp.Description("Trading pair symbol (e.g., btc_thb, eth_thb, ada_thb). Use lowercase with underscore."),
