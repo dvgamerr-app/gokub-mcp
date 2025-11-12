@@ -29,6 +29,7 @@ type SymbolInfo struct {
 	Bid       float64 `json:"bid"`
 	Ask       float64 `json:"ask"`
 	Spread    float64 `json:"spread"`
+	Last      float64 `json:"last"`
 }
 
 func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -60,6 +61,7 @@ func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 			Volume24h: sym.QuoteVolume,
 			Bid:       sym.HighestBid,
 			Ask:       sym.LowestAsk,
+			Last:      sym.Last,
 			Spread:    utils.Round(sym.LowestAsk - sym.HighestBid),
 		})
 	}

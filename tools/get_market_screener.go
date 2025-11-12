@@ -31,7 +31,7 @@ func NewGetMarketScreenerTool() mcp.Tool {
 			mcp.Description("Minimum 24h volume in THB (default: 1000000 = 1M THB)"),
 		),
 		mcp.WithNumber("max_spread",
-			mcp.Description("Maximum allowed spread percentage (default: 0.20%)"),
+			mcp.Description("Maximum allowed spread percentage (default: 2.0%)"),
 		),
 		mcp.WithNumber("min_depth",
 			mcp.Description("Minimum liquidity depth in THB within ±1% (default: 50000 THB)"),
@@ -45,59 +45,34 @@ func NewGetMarketScreenerTool() mcp.Tool {
 func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, err := utils.ValidateArgs(request.Params.Arguments)
 	if err != nil {
-		log.Warn().Msg("Invalid arguments format for market screener")
-		return utils.ErrorResult("invalid arguments")
+		log.Warn().Err(err).Msg("Failed to validate market screener arguments")
+		return utils.ErrorResult("failed to validate arguments: invalid format or missing required fields")
 	}
 
-	minVolume := 1000000.0
-	if val, ok := args["min_volume_24h"]; ok {
-		if fval, ok := val.(float64); ok {
-			minVolume = fval
-		}
-	}
+	minVolume := utils.GetFloat64Arg(args, "min_volume_24h", 1000000.0)
+	maxSpread := utils.GetFloat64Arg(args, "max_spread", 2.0)
+	minDepth := utils.GetFloat64Arg(args, "min_depth", 50000.0)
+	limit := utils.GetFloat64Arg(args, "limit", 10)
 
-	maxSpread := 0.20
-	if val, ok := args["max_spread"]; ok {
-		if fval, ok := val.(float64); ok {
-			maxSpread = fval
-		}
-	}
-
-	minDepth := 50000.0
-	if val, ok := args["min_depth"]; ok {
-		if fval, ok := val.(float64); ok {
-			minDepth = fval
-		}
-	}
-
-	limit := 10
-	if val, ok := args["limit"]; ok {
-		if fval, ok := val.(float64); ok {
-			limit = int(fval)
-			if limit > 20 {
-				limit = 20
-			}
-		}
-	}
-
-	log.Debug().
-		Float64("min_volume", minVolume).
-		Float64("max_spread", maxSpread).
-		Float64("min_depth", minDepth).
-		Int("limit", limit).
-		Msg("Starting market screening")
-
-	symbols, err := market.GetSymbols()
+	toolOutput, err := SymbolsHandler(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Name:      "get_symbols",
+		Arguments: map[string]any{"limit": limit},
+	}})
 	if err != nil {
-		log.Warn().Err(err).Msg("Failed to get symbols for screening")
-		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
+		log.Error().Err(err).Msg("Failed to fetch symbols from market")
+		return utils.ErrorResult("failed to fetch symbols from market")
 	}
 
-	log.Info().Int("thb_pairs", len(symbols)).Msg("Screening THB pairs")
+	toolResults, ok := toolOutput.StructuredContent.(map[string][]*SymbolInfo)
+	if !ok {
+		log.Warn().Msg("Invalid symbol data structure received")
+		return utils.ErrorResult("failed to parse symbol data: unexpected structure format")
+	}
+	symbolsInfo := toolResults["symbols"]
 
-	results := []ScreenerResult{}
+	results := []*ScreenerResult{}
 	stats := map[string]int{
-		"total":       len(symbols),
+		"total":       len(symbolsInfo),
 		"ticker_fail": 0,
 		"low_volume":  0,
 		"no_bid_ask":  0,
@@ -107,46 +82,28 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		"passed":      0,
 	}
 
-	for _, symbol := range symbols {
-		tickers, err := market.GetTicker(symbol.Symbol)
-		if err != nil || len(tickers) == 0 {
-			stats["ticker_fail"]++
-			log.Debug().Str("symbol", symbol.Symbol).Msg("Failed to get ticker")
-			continue
-		}
-
-		ticker := tickers[0]
-		volume24h := ticker.BaseVolume
-
-		if volume24h < minVolume {
+	for _, sym := range symbolsInfo {
+		if sym.Volume24h < minVolume {
 			stats["low_volume"]++
-			log.Debug().Str("symbol", symbol.Symbol).Float64("volume", volume24h).Msg("Volume too low")
 			continue
 		}
 
-		bid := ticker.HighestBid
-		ask := ticker.LowestAsk
-
-		if bid <= 0 || ask <= 0 {
+		if sym.Bid <= 0 || sym.Ask <= 0 {
 			stats["no_bid_ask"]++
-			log.Debug().Str("symbol", symbol.Symbol).Float64("bid", bid).Float64("ask", ask).Msg("No bid/ask")
 			continue
 		}
 
-		mid := (bid + ask) / 2
-		spread := ask - bid
-		spreadPercent := (spread / mid) * 100
+		mid := (sym.Bid + sym.Ask) / 2
+		spreadPercent := (sym.Spread / mid) * 100
 
 		if spreadPercent > maxSpread {
 			stats["high_spread"]++
-			log.Debug().Str("symbol", symbol.Symbol).Float64("spread", spreadPercent).Msg("Spread too high")
 			continue
 		}
 
-		depth, err := market.GetDepth(symbol.Symbol, 100)
+		depth, err := market.GetDepth(sym.Symbol, 100)
 		if err != nil {
 			stats["depth_fail"]++
-			log.Debug().Str("symbol", symbol.Symbol).Err(err).Msg("Failed to get depth")
 			continue
 		}
 
@@ -176,26 +133,25 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 
 		if totalLiquidity < minDepth {
 			stats["low_depth"]++
-			log.Debug().Str("symbol", symbol.Symbol).Float64("depth", totalLiquidity).Msg("Liquidity too low")
 			continue
 		}
 
-		volumeScore := volume24h / 10000000
+		volumeScore := sym.Volume24h / 10000000
 		spreadScore := (maxSpread - spreadPercent) / maxSpread * 100
 		liquidityScore := totalLiquidity / 100000
 
 		score := (volumeScore * 0.4) + (spreadScore * 0.3) + (liquidityScore * 0.3)
 
-		results = append(results, ScreenerResult{
-			Symbol:         symbol.Symbol,
-			Volume24h:      utils.Round(volume24h),
-			Spread:         utils.Round(spread),
+		results = append(results, &ScreenerResult{
+			Symbol:         sym.Symbol,
+			Volume24h:      utils.Round(sym.Volume24h),
+			Spread:         utils.Round(sym.Spread),
 			SpreadPercent:  utils.Round(spreadPercent, 2),
 			BidLiquidity:   utils.Round(bidLiquidity),
 			AskLiquidity:   utils.Round(askLiquidity),
 			TotalLiquidity: utils.Round(totalLiquidity),
 			Score:          utils.Round(score, 2),
-			LastPrice:      utils.Round(ticker.Last),
+			LastPrice:      sym.Last,
 		})
 
 		stats["passed"]++
@@ -204,22 +160,6 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
-
-	if len(results) > limit {
-		results = results[:limit]
-	}
-
-	log.Info().
-		Int("total", stats["total"]).
-		Int("ticker_fail", stats["ticker_fail"]).
-		Int("low_volume", stats["low_volume"]).
-		Int("no_bid_ask", stats["no_bid_ask"]).
-		Int("high_spread", stats["high_spread"]).
-		Int("depth_fail", stats["depth_fail"]).
-		Int("low_depth", stats["low_depth"]).
-		Int("passed", stats["passed"]).
-		Int("returned", len(results)).
-		Msg("Market screening completed")
 
 	result := "🔍 Market Screener Results:\n"
 	result += fmt.Sprintf("Filters: Vol≥%.0fK, Spread≤%.2f%%, Depth≥%.0fK\n\n", minVolume/1000, maxSpread, minDepth/1000)
