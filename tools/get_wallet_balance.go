@@ -19,8 +19,8 @@ type CurrencyBalance struct {
 }
 
 type WalletBalanceOutput struct {
-	Balances []CurrencyBalance `json:"balances"`
-	TotalTHB float64           `json:"total_thb"`
+	Balances []*CurrencyBalance `json:"balances"`
+	TotalTHB float64            `json:"total_thb"`
 }
 
 func NewWalletBalanceTool() mcp.Tool {
@@ -38,13 +38,13 @@ func WalletBalanceHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 		return utils.ErrorResult(fmt.Sprintf("get_wallet_balance: %v", err))
 	}
 
-	var currencyBalances []CurrencyBalance
+	var currencyBalances []*CurrencyBalance
 	totalTHB := 0.0
 
 	for currency, balance := range balances {
 		if balance.Available > 0 || balance.Reserved > 0 {
 			total := balance.Available + balance.Reserved
-			currencyBalances = append(currencyBalances, CurrencyBalance{
+			currencyBalances = append(currencyBalances, &CurrencyBalance{
 				Currency:  strings.ToUpper(currency),
 				Total:     utils.Round(total, 8),
 				Available: utils.Round(balance.Available, 8),

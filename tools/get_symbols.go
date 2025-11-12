@@ -49,13 +49,13 @@ func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	}
 
 	result := "📋 Symbol: "
-	symbolInfos := []SymbolInfo{}
+	symbolInfos := []*SymbolInfo{}
 
 	for _, sym := range tickers {
 		symbol := strings.Replace(strings.ToUpper(sym.Symbol), "THB_", "", 1)
 		symbol = symbol + "_THB"
 
-		symbolInfos = append(symbolInfos, SymbolInfo{
+		symbolInfos = append(symbolInfos, &SymbolInfo{
 			Symbol:    symbol,
 			Volume24h: sym.QuoteVolume,
 			Bid:       sym.HighestBid,
@@ -76,7 +76,7 @@ func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 		result += fmt.Sprintf("%s ", strings.Replace(strings.ToUpper(sym.Symbol), "_THB", "", 1))
 	}
 
-	return utils.ArtifactsResult(result, map[string]any{
+	return utils.ArtifactsResult(result, map[string][]*SymbolInfo{
 		"symbols": symbolInfos,
 	})
 }
