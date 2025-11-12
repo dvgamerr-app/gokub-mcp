@@ -32,15 +32,9 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	symbol, err := utils.GetStringArg(args, "symbol")
-	if err != nil {
-		log.Warn().Msg("Symbol parameter missing for market depth")
-		return utils.ErrorResult("symbol required")
-	}
-
+	symbol := strings.ToLower(utils.GetStringArg(args, "symbol"))
 	limit := min(utils.GetIntArg(args, "limit", 10), 100)
 
-	symbol = strings.ToLower(symbol)
 	log.Debug().Str("symbol", symbol).Int("limit", limit).Msg("Getting market depth")
 
 	depth, err := market.GetDepth(symbol, limit)

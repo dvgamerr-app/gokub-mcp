@@ -28,13 +28,7 @@ func TickerHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallT
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	symbol, err := utils.GetStringArg(args, "symbol")
-	if err != nil {
-		log.Warn().Msg("Symbol parameter missing")
-		return utils.ErrorResult("symbol required")
-	}
-
-	symbol = strings.ToLower(symbol)
+	symbol := strings.ToLower(utils.GetStringArg(args, "symbol"))
 	log.Debug().Str("symbol", symbol).Msg("Getting ticker")
 
 	tickers, err := market.GetTicker(symbol)

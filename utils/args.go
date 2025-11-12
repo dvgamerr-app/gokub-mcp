@@ -9,18 +9,18 @@ import (
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
-func GetStringArg(args map[string]any, key string) (string, error) {
-	arg, ok := args[key]
-	if !ok {
-		return "", fmt.Errorf("%s parameter is required", key)
+func GetStringArg(args map[string]any, key string, defaultValue ...string) string {
+	if val, ok := args[key]; ok {
+		if fval, ok := val.(string); ok {
+			return fval
+		}
 	}
 
-	value, ok := arg.(string)
-	if !ok {
-		return "", fmt.Errorf("%s must be a string", key)
+	if len(defaultValue) == 0 {
+		return ""
 	}
 
-	return value, nil
+	return defaultValue[0]
 }
 func GetFloat64Arg(args map[string]any, key string, defaultValue ...float64) float64 {
 	if val, ok := args[key]; ok {
@@ -36,13 +36,17 @@ func GetFloat64Arg(args map[string]any, key string, defaultValue ...float64) flo
 	return defaultValue[0]
 }
 
-func GetIntArg(args map[string]any, key string, defaultValue int) int {
+func GetIntArg(args map[string]any, key string, defaultValue ...int) int {
 	if val, ok := args[key]; ok {
 		if fval, ok := val.(float64); ok {
 			return int(fval)
 		}
 	}
-	return defaultValue
+	if len(defaultValue) == 0 {
+		return 0
+	}
+
+	return defaultValue[0]
 }
 
 func ValidateArgs(args any) (map[string]any, error) {

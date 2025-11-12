@@ -45,15 +45,9 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	symbol, err := utils.GetStringArg(args, "symbol")
-	if err != nil {
-		log.Warn().Msg("Symbol parameter missing for calculate liquidity depth")
-		return utils.ErrorResult("symbol required")
-	}
-
 	rangePercent := utils.GetFloat64Arg(args, "range_percent", 1.0)
+	symbol := strings.ToLower(utils.GetStringArg(args, "symbol"))
 
-	symbol = strings.ToLower(symbol)
 	log.Debug().Str("symbol", symbol).Float64("range_percent", rangePercent).Msg("Calculating liquidity depth")
 
 	tickers, err := market.GetTicker(symbol)
