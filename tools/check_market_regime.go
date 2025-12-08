@@ -30,7 +30,7 @@ func CheckMarketRegimeHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	pricesRaw, ok := args["prices"].([]interface{})
+	pricesRaw, ok := args["prices"].([]any)
 	if !ok {
 		return utils.ErrorResult("prices must be an array")
 	}
