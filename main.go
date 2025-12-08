@@ -73,6 +73,7 @@ func main() {
 	s.AddTool(tools.NewCalculateLiquidityDepthTool(), tools.CalculateLiquidityDepthHandler)
 	s.AddTool(tools.NewGetMarketScreenerTool(), tools.GetMarketScreenerHandler)
 	s.AddTool(tools.NewHistoricalCandlesTool(), tools.HistoricalCandlesHandler)
+	s.AddTool(tools.NewExtractClosePricesTool(), tools.ExtractClosePricesHandler)
 	s.AddTool(tools.NewCalculateEMATool(), tools.CalculateEMAHandler)
 	s.AddTool(tools.NewCalculateROCTool(), tools.CalculateROCHandler)
 	s.AddTool(tools.NewCalculateATRTool(), tools.CalculateATRHandler)
@@ -81,6 +82,7 @@ func main() {
 	s.AddTool(tools.NewDetectBreakoutSignalTool(), tools.DetectBreakoutSignalHandler)
 	s.AddTool(tools.NewDetectPullbackSignalTool(), tools.DetectPullbackSignalHandler)
 	s.AddTool(tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler)
+	s.AddTool(tools.NewCalculateCAPMTool(), tools.CalculateCAPMHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)

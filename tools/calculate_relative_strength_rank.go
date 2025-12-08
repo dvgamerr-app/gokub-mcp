@@ -19,6 +19,7 @@ type SymbolROC struct {
 type RSRankResult struct {
 	Period    int          `json:"period"`
 	Benchmark string       `json:"benchmark"`
+	ROC       float64      `json:"benchmark_roc"`
 	Rankings  []*SymbolROC `json:"rankings"`
 	Top3      []string     `json:"top3"`
 }
@@ -55,6 +56,8 @@ func CalculateRelativeStrengthRankHandler(ctx context.Context, request mcp.CallT
 	period := utils.GetIntArg(args, "period", 14)
 	benchmark := utils.GetStringArg(args, "benchmark", "btc_thb")
 
+	var benchmarkROC float64
+
 	rocList := make([]*SymbolROC, 0, len(symbolsRaw))
 
 	for symbol, pricesRaw := range symbolsRaw {
@@ -83,6 +86,10 @@ func CalculateRelativeStrengthRankHandler(ctx context.Context, request mcp.CallT
 		priceThen := prices[len(prices)-1-period]
 		roc := ((priceNow - priceThen) / priceThen) * 100
 
+		if symbol == benchmark {
+			benchmarkROC = roc
+		}
+
 		rocList = append(rocList, &SymbolROC{
 			Symbol: symbol,
 			ROC:    utils.Round(roc, 2),
@@ -105,15 +112,17 @@ func CalculateRelativeStrengthRankHandler(ctx context.Context, request mcp.CallT
 	result := &RSRankResult{
 		Period:    period,
 		Benchmark: benchmark,
+		ROC:       utils.Round(benchmarkROC, 2),
 		Rankings:  rocList,
 		Top3:      top3,
 	}
 
 	summary := fmt.Sprintf("Relative Strength ranking for %d symbols (ROC %d period)\n", len(rocList), period)
-	summary += fmt.Sprintf("Benchmark: %s\n\n", benchmark)
+	summary += fmt.Sprintf("Benchmark: %s (ROC: %.2f%%)\n\n", benchmark, benchmarkROC)
 	summary += "Top 3:\n"
 	for i, s := range rocList[:min(3, len(rocList))] {
-		summary += fmt.Sprintf("%d. %s: %.2f%%\n", i+1, s.Symbol, s.ROC)
+		relativeToB := s.ROC - benchmarkROC
+		summary += fmt.Sprintf("%d. %s: %.2f%% (vs benchmark: %+.2f%%)\n", i+1, s.Symbol, s.ROC, relativeToB)
 	}
 
 	return utils.ArtifactsResult(summary, result)
