@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Analyze issue with GitHub Models
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           MODEL_ID: ${{ vars.AI_MODEL_ID || 'openai/gpt-4o-mini' }}
         with:
