@@ -7,6 +7,31 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+// TestCalculateCAPMFormula verifies CAPM formula (ASSIGNMENT.md Extra E3).
+// E(Ri) = Rf + β·(Rm−Rf) = 0.02 + 1.2*(0.08−0.02) = 0.02 + 0.072 = 0.092
+func TestCalculateCAPMFormula(t *testing.T) {
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"risk_free_rate": 0.02,
+				"beta":           1.2,
+				"market_return":  0.08,
+			},
+		},
+	}
+	result, err := CalculateCAPMHandler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out, ok := result.StructuredContent.(*CAPMResult)
+	if !ok {
+		t.Fatal("StructuredContent is not *CAPMResult")
+	}
+	if out.ExpectedReturn != 0.092 {
+		t.Errorf("expected_return: want 0.092, got %v (formula: E(Ri)=Rf+β·(Rm−Rf))", out.ExpectedReturn)
+	}
+}
+
 func TestCalculateCAPMHandler(t *testing.T) {
 	tests := []struct {
 		name    string

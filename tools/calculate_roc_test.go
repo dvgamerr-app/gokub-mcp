@@ -22,6 +22,14 @@ func TestCalculateROCHandler(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "Non-numeric price",
+			args: map[string]any{
+				"period": float64(1),
+				"prices": []any{100.0, "bad"},
+			},
+			wantErr: true,
+		},
+		{
 			name: "Not enough data",
 			args: map[string]any{
 				"period": float64(5),
@@ -53,5 +61,29 @@ func TestCalculateROCHandler(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestCalculateROCFormula verifies: ROC = ((Close_t - Close_t-n) / Close_t-n) × 100
+// ASSIGNMENT.md example: entry 50 → target 55 represents +10% move over the period.
+func TestCalculateROCFormula(t *testing.T) {
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"period": float64(1),
+				"prices": []any{50.0, 55.0},
+			},
+		},
+	}
+	result, err := CalculateROCHandler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out, ok := result.StructuredContent.(*ROCResult)
+	if !ok {
+		t.Fatal("StructuredContent is not *ROCResult")
+	}
+	if out.ROC != 10.0 {
+		t.Errorf("ROC: want 10.0, got %v (formula: (55-50)/50×100)", out.ROC)
 	}
 }

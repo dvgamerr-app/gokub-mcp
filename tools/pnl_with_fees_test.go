@@ -60,6 +60,35 @@ func TestPnLWithFeesHandler(t *testing.T) {
 	}
 }
 
+// TestPnLWithFeesFormula verifies both-leg fee deduction (ASSIGNMENT.md §7, §9, tool 36).
+// entry=50, exit=55, qty=16, maker/taker=0.25%
+// entryFee=50×16×0.0025=2.0, exitFee=55×16×0.0025=2.2, totalFee=4.2
+// net PnL = (55−50)×16 − 4.2 = 80 − 4.2 = 75.8 THB
+func TestPnLWithFeesFormula(t *testing.T) {
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"entry": 50.0, "exit": 55.0, "qty": 16.0,
+				"stop": 47.5, "maker_fee": 0.25, "taker_fee": 0.25,
+			},
+		},
+	}
+	result, err := PnLWithFeesHandler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out, ok := result.StructuredContent.(TradePnLOutput)
+	if !ok {
+		t.Fatal("StructuredContent is not TradePnLOutput")
+	}
+	if out.TotalFee != 4.2 {
+		t.Errorf("total_fee_thb: want 4.2, got %v", out.TotalFee)
+	}
+	if out.PnLTHB != 75.8 {
+		t.Errorf("pnl_thb: want 75.8 (after both-leg fees), got %v", out.PnLTHB)
+	}
+}
+
 func TestCheckTradePnLHandler(t *testing.T) {
 	tests := []struct {
 		name    string

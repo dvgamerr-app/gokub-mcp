@@ -7,6 +7,37 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
+// TestCalculateEMAFormula verifies EMA series + current value (ASSIGNMENT.md §3, tool 11).
+// period=3, prices=[10,11,12,13,14], k=2/(3+1)=0.5
+// SMA(3)=11.0=ema[2], ema[3]=(13-11)*0.5+11=12.0, ema[4]=(14-12)*0.5+12=13.0 (current)
+func TestCalculateEMAFormula(t *testing.T) {
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"period": float64(3),
+				"prices": []any{10.0, 11.0, 12.0, 13.0, 14.0},
+			},
+		},
+	}
+	result, err := CalculateEMAHandler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out, ok := result.StructuredContent.(*EMAResult)
+	if !ok {
+		t.Fatal("StructuredContent is not *EMAResult")
+	}
+	if out.Current != 13.0 {
+		t.Errorf("current_ema: want 13.0, got %v", out.Current)
+	}
+	if out.Previous != 12.0 {
+		t.Errorf("previous_ema: want 12.0, got %v", out.Previous)
+	}
+	if out.Trend != "bullish" {
+		t.Errorf("trend: want bullish (current > previous), got %s", out.Trend)
+	}
+}
+
 func TestCalculateEMAHandler(t *testing.T) {
 	tests := []struct {
 		name    string
