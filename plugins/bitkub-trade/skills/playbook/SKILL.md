@@ -26,8 +26,8 @@ The analysis tools (`check_market_regime`, `calculate_atr`, `calculate_rsi`,
 `detect_breakout_signal`, `detect_pullback_signal`, `calculate_ema`, `calculate_roc`)
 take **arrays** (prices or OHLCV candles), not a symbol. So always:
 
-1. `get_historical_candles` for the symbol+timeframe first.
-2. Feed `close` prices (use `extract_close_prices`) or the candle array into the tool.
+1. `get_historical_candles(symbols=[symbol], format="close")` — returns `result.prices[]` directly.
+2. Pass `result.prices` into price-based tools (EMA, RSI, ROC, regime) or use `result.candles` (default format) for OHLCV tools (ATR, breakout, pullback, exit signals).
 
 Use the big timeframe (1D / 240) for regime + relative strength, the entry timeframe
 (60 / 15) for ATR + entry signals.

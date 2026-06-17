@@ -14,6 +14,7 @@ import (
 type TradeRecord struct {
 	ID         int     `json:"id"`
 	Symbol     string  `json:"symbol"`
+	Timeframe  string  `json:"timeframe,omitempty"`
 	Strategy   string  `json:"strategy,omitempty"`
 	EntryDate  string  `json:"entry_date"`
 	EntryPrice float64 `json:"entry_price"`

@@ -32,6 +32,9 @@ func NewLogTradeEntryTool() mcp.Tool {
 		mcp.WithNumber("tp_2r",
 			mcp.Description("Take-profit (2R) price"),
 		),
+		mcp.WithString("timeframe",
+			mcp.Description("Chart timeframe used (e.g., 15m, 1h, 4h, 1d)"),
+		),
 		mcp.WithString("strategy",
 			mcp.Description("Strategy used (e.g., breakout, pullback)"),
 		),
@@ -64,6 +67,7 @@ func LogTradeEntryHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 	rec := TradeRecord{
 		Symbol:     symbol,
+		Timeframe:  utils.GetStringArg(args, "timeframe"),
 		Strategy:   utils.GetStringArg(args, "strategy"),
 		EntryDate:  entryDate,
 		EntryPrice: entryPrice,

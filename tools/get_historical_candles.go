@@ -93,7 +93,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 	now := time.Now().Unix()
 	from := now - int64(limit*resolution*60)
 
-	if len(symbols) == 1 && format != "close" {
+	if len(symbols) == 1 {
 		symbol := symbols[0]
 		candles, err := market.GetHistory(market.HistoryRequest{
 			Symbol:     symbol,
@@ -113,6 +113,16 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 
 		dataLen := min(limit, len(candles.Close))
+
+		if format == "close" {
+			prices := make([]float64, dataLen)
+			for i := range dataLen {
+				prices[i] = candles.Close[i]
+			}
+			summary := fmt.Sprintf("Retrieved %d close prices for %s (%s timeframe)", dataLen, symbol, resolutionStr)
+			return utils.ArtifactsResult(summary, map[string]any{"symbol": strings.ToLower(symbol), "prices": prices, "data_points": dataLen})
+		}
+
 		result := make([]*Candle, dataLen)
 		for i := range dataLen {
 			result[i] = &Candle{

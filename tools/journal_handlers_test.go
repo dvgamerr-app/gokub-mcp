@@ -20,7 +20,7 @@ func TestLogTradeEntryHandler(t *testing.T) {
 			name: "valid entry",
 			args: map[string]any{
 				"symbol": "btc_thb", "entry_price": 50000.0, "qty": 0.001,
-				"stop": 48000.0, "strategy": "breakout",
+				"stop": 48000.0, "strategy": "breakout", "timeframe": "1h",
 			},
 			wantErr: false,
 		},
