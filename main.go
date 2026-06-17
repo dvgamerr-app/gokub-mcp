@@ -94,6 +94,10 @@ func main() {
 	s.AddTool(tools.NewCheckTradePnLTool(), tools.CheckTradePnLHandler)
 	s.AddTool(tools.NewCalculateTrailingStopTool(), tools.CalculateTrailingStopHandler)
 	s.AddTool(tools.NewCheckExitSignalsTool(), tools.CheckExitSignalsHandler)
+	s.AddTool(tools.NewLogTradeEntryTool(), tools.LogTradeEntryHandler)
+	s.AddTool(tools.NewLogTradeExitTool(), tools.LogTradeExitHandler)
+	s.AddTool(tools.NewCalculateExpectancyTool(), tools.CalculateExpectancyHandler)
+	s.AddTool(tools.NewGetTradeHistoryTool(), tools.GetTradeHistoryHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)

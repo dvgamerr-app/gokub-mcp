@@ -15,3 +15,6 @@
 # vendor/
 .env
 docs/ASSIGNMENT.md
+
+# trade journal (runtime data)
+trades.json
