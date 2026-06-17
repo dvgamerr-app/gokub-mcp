@@ -63,8 +63,8 @@ If any check fails → hold cash. Cash is a position.
 
 ## Execution flow
 
-After passing the checklist above, hand off to the **playbook** starting at step 4
-(Volatility fit). Steps 1–3 (Shortlist, Regime, Relative Strength) are replaced by
-the simpler checklist above since we are BTC-only.
+After passing the checklist above, hand off to the **playbook** starting at step 0
+(Pre-session portfolio review), then skip steps 1–3 (Shortlist, Regime, Relative Strength)
+since we are BTC-only and the checklist above replaces them.
 
-→ Continue with: `plugins/bitkub-trade/skills/playbook/SKILL.md` step 4 onward.
+→ Continue with: `plugins/bitkub-trade/skills/playbook/SKILL.md` **Step 0**, then step 4 onward.

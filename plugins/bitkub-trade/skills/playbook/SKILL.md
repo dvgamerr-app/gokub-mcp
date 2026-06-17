@@ -34,6 +34,26 @@ Use the big timeframe (1D / 240) for regime + relative strength, the entry timef
 
 ## The flow
 
+### Step 0 — Pre-session portfolio review (always run first)
+
+Before screening for new trades, check what you already hold.
+
+1. `get_trade_history(status_filter=open)` — list all open positions.
+2. For each open position:
+   - `get_historical_candles(symbol, interval=60)` → `check_exit_signals(candles)`.
+   - If result has `should_exit=true` or ≥ 2 exit reasons → **exit immediately**:
+     `place_limit_order(side=sell)` → `log_trade_exit(trade_id, exit_price, exit_reason)`.
+   - `check_trade_pnl(symbol, entry, qty, stop)` — note current R to inform next steps.
+3. `get_my_open_orders` — collect all symbols that already have a pending limit order on
+   the exchange. **Skip the entry step for any symbol already on this list.** This prevents
+   duplicate orders when the skill runs on a recurring schedule (e.g. every 2H).
+4. If cash < minimum reserve (see skill overlay) after exits → do **not** open new positions
+   this session. Review only.
+
+Only after all urgent exits are handled, proceed to step 1 for new entries.
+
+---
+
 1. **Shortlist** — `get_market_screener` (volume, spread, depth) or `get_market_overview`
    for context. Keep 5–10 liquid THB pairs.
 2. **Regime filter** — `get_historical_candles` (1D) → `check_market_regime(prices)`.

@@ -102,4 +102,4 @@ Steps 4–11 follow the playbook exactly, with one addition:
 **Between step 9 (simulate) and step 10 (place + log):**
 → Show the confirmation summary above and wait for user approval (unless waived).
 
-→ Continue with: `plugins/bitkub-trade/skills/playbook/SKILL.md` step 4 onward.
+→ Continue with: `plugins/bitkub-trade/skills/playbook/SKILL.md` **Step 0 first**, then step 1 onward.
