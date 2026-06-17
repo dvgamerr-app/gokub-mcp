@@ -1,6 +1,11 @@
 ---
 name: high-risk
-description: High-risk overlay for Bitkub swing trading. Up to 3% risk per trade, BTC + ETH + top-10 altcoins allowed, smaller cash reserve, shorter entry timeframe. Use when asked to trade aggressively, maximize returns, or "high risk". Applies looser filters on top of the playbook — read this first, then follow the playbook. Always confirm with the user before placing a real order, unless the user has explicitly waived confirmation for this session.
+description: >-
+  High-risk overlay for Bitkub swing trading. Up to 3% risk per trade, BTC + ETH + top-10 altcoins allowed, smaller cash reserve, shorter entry timeframe. Use when asked to trade aggressively, maximize returns, or "high risk". Applies looser filters on top of the playbook — read this first, then follow the playbook. Always confirm with the user before placing a real order, unless the user has explicitly waived confirmation for this session.
+license: MIT
+author: Kananek T.
+version: 0.1
+category: trading
 ---
 
 # High-Risk Trading Rules (Bitkub)

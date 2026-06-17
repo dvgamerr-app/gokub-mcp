@@ -1,6 +1,11 @@
 ---
 name: low-risk
-description: Low-risk overlay for Bitkub swing trading. BTC-only, 1% risk per trade, cash reserve enforced. Use when asked to trade safely, trade conservatively, or "low risk". Applies stricter filters on top of the playbook flow — read this first, then follow the playbook.
+description: >-
+  Low-risk overlay for Bitkub swing trading. BTC-only, 1% risk per trade, cash reserve enforced. Use when asked to trade safely, trade conservatively, or "low risk". Applies stricter filters on top of the playbook flow — read this first, then follow the playbook.
+license: MIT
+author: Kananek T.
+version: 0.1
+category: trading
 ---
 
 # Low-Risk Trading Rules (Bitkub)
