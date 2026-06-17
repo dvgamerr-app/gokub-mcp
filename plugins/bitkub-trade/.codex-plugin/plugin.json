@@ -1,0 +1,22 @@
+{
+  "name": "bitkub-trade",
+  "version": "1.0.0",
+  "description": "Playbook for swing-trading the long side on Bitkub (THB pairs) using the gokub-mcp tools: screen → regime → signal → size → validate → place → manage → log, with hard risk guardrails.",
+  "author": {
+    "name": "dvgamerr-app"
+  },
+  "homepage": "https://github.com/dvgamerr-app/gokub-mcp",
+  "repository": "https://github.com/dvgamerr-app/gokub-mcp",
+  "license": "MIT",
+  "keywords": ["bitkub", "trading", "mcp", "crypto", "playbook"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Bitkub Trade",
+    "shortDescription": "Swing-trade Bitkub with the gokub-mcp tools",
+    "longDescription": "A playbook that turns the gokub-mcp tools into a disciplined long-only swing-trading workflow on Bitkub: screen, check regime, rank relative strength, size by risk, validate, place, manage, and log.",
+    "developerName": "dvgamerr-app",
+    "category": "Productivity",
+    "capabilities": ["Instructions"],
+    "defaultPrompt": "Find a long swing-trade setup on Bitkub."
+  }
+}

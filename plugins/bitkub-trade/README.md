@@ -24,23 +24,31 @@ invoke it automatically when you ask it to find/evaluate/manage a Bitkub trade.
 
 ## Install (Codex)
 
-Codex reads skills from `AGENTS.md` / its skills directory rather than the Claude
-plugin marketplace. Point Codex at the same file:
+The repo doubles as a Codex marketplace (`.agents/plugins/marketplace.json`):
 
 ```
-# from the repo root, link or copy the skill into Codex's skills path
-mkdir -p ~/.codex/skills/bitkub-trade
-cp plugins/bitkub-trade/skills/playbook/SKILL.md ~/.codex/skills/bitkub-trade/
+codex plugin marketplace add dvgamerr-app/gokub-mcp
+codex plugin add bitkub-trade@gokub-mcp
 ```
 
-(The `SKILL.md` body is plain, tool-agnostic Markdown, so it works as a skill in
-both Claude Code and Codex.)
-
-## Structure
+Or install just the skill (no plugin manifest needed) via the `skill-installer`:
 
 ```
-plugins/bitkub-trade/
-├── .claude-plugin/plugin.json
-├── README.md
-└── skills/playbook/SKILL.md
+# install-skill-from-github.py --repo dvgamerr-app/gokub-mcp \
+#   --path plugins/bitkub-trade/skills/playbook --name bitkub-trade
+```
+
+Start a new thread afterwards so Codex picks up the new skill.
+
+## Structure (cross-tool)
+
+```
+gokub-mcp/
+├── .claude-plugin/marketplace.json     # Claude marketplace
+├── .agents/plugins/marketplace.json    # Codex marketplace
+└── plugins/bitkub-trade/
+    ├── .claude-plugin/plugin.json      # Claude plugin manifest
+    ├── .codex-plugin/plugin.json       # Codex plugin manifest
+    ├── README.md
+    └── skills/playbook/SKILL.md        # shared skill (both tools)
 ```
