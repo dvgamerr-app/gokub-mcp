@@ -46,35 +46,100 @@
 
 ## 🔧 Installation
 
-### Quick Start
+> Fastest path: **build the server → register it as an MCP server in Claude Code / Codex →
+> install the `bitkub-trade` playbook plugin.** Steps 3–5 are the important part.
+
+### 1️⃣ Build the MCP server
 
 ```bash
-# 1️⃣ Clone repository
 git clone https://github.com/dvgamerr-app/gokub-mcp.git
 cd gokub-mcp
-
-# 2️⃣ Install dependencies
-go mod download
-
-# 3️⃣ Create .env file
-echo "BTK_APIKEY=your_api_key_here" > .env
-echo "BTK_SECRET=your_secret_key_here" >> .env
-
-# 4️⃣ Run server
-go run main.go
+go build -o bitkub-mcp .          # Windows: go build -o bitkub-mcp.exe .
 ```
 
-### 🏗️ Build Executable
+> Prefer containers? Skip the build and use [🐳 Docker](#-docker) (HTTP/SSE mode).
+
+### 2️⃣ Credentials
+
+The server reads `BTK_APIKEY` / `BTK_SECRET` from its **environment** — pass them when you
+register the server (steps 3–4), so no `.env` file is required. For a plain local
+`go run main.go`, a `.env` in the repo root still works:
 
 ```bash
-# Windows
-go build -o bitkub-mcp.exe
-./bitkub-mcp.exe
-
-# Linux/Mac
-go build -o bitkub-mcp
-./bitkub-mcp
+BTK_APIKEY=your_api_key
+BTK_SECRET=your_secret_key
 ```
+
+### 3️⃣ Register the MCP server in Claude Code
+
+The current way is the `claude mcp add` CLI (replaces hand-editing JSON). Pass the env
+inline with `-e`:
+
+```bash
+claude mcp add bitkub \
+  -e BTK_APIKEY=your_api_key \
+  -e BTK_SECRET=your_secret_key \
+  -- /absolute/path/to/bitkub-mcp
+```
+
+- Add `-s user` to make it global across all projects (default scope is project-local `.mcp.json`).
+- It runs over **stdio** by default — no extra flags. Verify with `/mcp` in a session.
+
+### 4️⃣ Register the MCP server in Codex
+
+```bash
+codex mcp add bitkub \
+  --env BTK_APIKEY=your_api_key \
+  --env BTK_SECRET=your_secret_key \
+  -- /absolute/path/to/bitkub-mcp
+```
+
+…or edit `~/.codex/config.toml` directly:
+
+```toml
+[mcp_servers.bitkub]
+command = "/absolute/path/to/bitkub-mcp"
+args = []
+
+[mcp_servers.bitkub.env]
+BTK_APIKEY = "your_api_key"
+BTK_SECRET = "your_secret_key"
+```
+
+Verify with `/mcp` inside Codex.
+
+### 5️⃣ Install the trading playbook plugin (skill)
+
+The tools are the *hands*; the **`bitkub-trade`** plugin is the *brain* — the strategy
+playbook + guardrails. The repo doubles as a plugin marketplace for both clients:
+
+```bash
+# Claude Code
+/plugin marketplace add dvgamerr-app/gokub-mcp
+/plugin install bitkub-trade@gokub-mcp
+
+# Codex
+codex plugin marketplace add dvgamerr-app/gokub-mcp
+codex plugin add bitkub-trade@gokub-mcp
+```
+
+See [`plugins/bitkub-trade`](plugins/bitkub-trade/README.md) for details.
+
+## 🐳 Docker
+
+Runs the server in **HTTP/SSE mode** (good for a shared/remote server; for a local
+client that spawns the binary over stdio, use the native build above):
+
+```bash
+docker build -t bitkub-mcp .
+docker run --rm -p 8080:8080 \
+  -e BTK_APIKEY=your_api_key \
+  -e BTK_SECRET=your_secret_key \
+  bitkub-mcp
+```
+
+Then point an SSE-capable client at `http://localhost:8080/sse`. Override the port with
+`-e PORT=9000 -p 9000:9000`.
 
 ## 🎮 Usage
 
@@ -91,11 +156,12 @@ PORT=3000 go run main.go
 <details>
 <summary>📡 Server Endpoints</summary>
 
+> Default port is **3000** (override with `PORT`). Docker image defaults to 8080.
+
 | Endpoint | Purpose | Method |
 |----------|---------|--------|
-| `http://localhost:8080` | Main URL | GET |
-| `http://localhost:8080/sse` | SSE Connection | GET |
-| `http://localhost:8080/message` | Send Message | POST |
+| `http://localhost:3000/sse` | SSE Connection | GET |
+| `http://localhost:3000/msg` | Send Message | POST |
 
 </details>
 
@@ -170,74 +236,45 @@ skill that encodes the strategy (screen → regime → relative-strength → ATR
 size → **validate gate** → round → place → manage → log) and the hard guardrails
 (≤2% risk/trade, long-only, no entry unless `can_trade=true`, client-side stop, TP ≥2R).
 
-The repo doubles as a plugin marketplace for both Claude Code and Codex.
-
-```bash
-# Claude Code
-/plugin marketplace add dvgamerr-app/gokub-mcp
-/plugin install bitkub-trade@gokub-mcp
-
-# Codex
-codex plugin marketplace add dvgamerr-app/gokub-mcp
-codex plugin add bitkub-trade@gokub-mcp
-```
-
-See [`plugins/bitkub-trade`](plugins/bitkub-trade/README.md) for details.
+→ Install it in [step 5 of Installation](#-installation). Details:
+[`plugins/bitkub-trade`](plugins/bitkub-trade/README.md).
 
 
 ## ⚙️ Configuration
 
-### 🔐 API Keys Setup
+### 🔐 Environment variables
 
-สร้างไฟล์ `.env` ใน root directory:
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `BTK_APIKEY` | for trading/wallet | Bitkub API key |
+| `BTK_SECRET` | for trading/wallet | Bitkub API secret |
+| `PORT` | no (default `3000`) | HTTP/SSE port (`-serv` mode) |
+| `TRADES_FILE` | no (default `trades.json`) | trade-journal file path |
 
-```bash
-BTK_APIKEY=your_api_key
-BTK_SECRET=your_secret_key
-```
+Pass keys when you register the MCP server (see [Installation](#-installation) steps 3–4) —
+that's preferred over a committed `.env`. Public market-data tools work without keys;
+wallet/order tools need them.
 
-
-### 🤖 Claude Desktop Integration
-
-<details open>
-<summary><b>HTTP/SSE Mode (แนะนำ)</b></summary>
-
-เพิ่มการตั้งค่าใน Claude Desktop config:
-
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json`  
-**Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "bitkub": {
-      "url": "http://localhost:8080/sse",
-      "transport": "sse"
-    }
-  }
-}
-```
-
-</details>
+> ⚠️ Keep secrets in env vars / your client config, never commit `.env` (it's gitignored).
 
 <details>
-<summary><b>Stdio Mode (Legacy)</b></summary>
+<summary><b>🤖 Legacy: Claude Desktop (SSE) config</b></summary>
+
+If you run the HTTP server (or the Docker image) and use the Claude **Desktop** app,
+point it at the SSE endpoint:
 
 ```json
 {
   "mcpServers": {
-    "bitkub": {
-      "command": "e:\\.dvgamerr\\gokub-mcp\\bitkub-mcp.exe",
-      "env": {
-        "BTK_APIKEY": "your_api_key",
-        "BTK_SECRET": "your_secret_key"
-      }
-    }
+    "bitkub": { "url": "http://localhost:3000/sse", "transport": "sse" }
   }
 }
 ```
 
-> ⚠️ **หมายเหตุ:** ควรตั้งค่า API keys ผ่าน environment variables แทนการใส่ใน config file
+**Windows:** `%APPDATA%\Claude\claude_desktop_config.json` ·
+**Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+For **Claude Code / Codex**, prefer `claude mcp add` / `codex mcp add` (stdio) above.
 
 </details>
 
@@ -246,6 +283,7 @@ BTK_SECRET=your_secret_key
 ```
 gokub-mcp/
 ├── 📄 main.go                      # MCP Server entry point (HTTP/SSE) + tool registration
+├── 🐳 Dockerfile                   # HTTP/SSE server image
 ├── 📂 tools/                       # 39 MCP tools (+ unit tests)
 ├── 📂 prompts/                     # trading_strategy, market_analysis prompts
 ├── 📂 resources/                   # bitkub://symbols, bitkub://ticker/{symbol}

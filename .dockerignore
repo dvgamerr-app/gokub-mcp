@@ -1,0 +1,11 @@
+.git
+.github
+.env
+*.exe
+*.exe~
+trades.json
+docs
+plugins
+.claude-plugin
+.agents
+README.md
