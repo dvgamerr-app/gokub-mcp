@@ -36,18 +36,10 @@ func ExtractClosePricesHandler(ctx context.Context, request mcp.CallToolRequest)
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	prices := make([]float64, 0, len(candlesRaw))
-
-	for _, c := range candlesRaw {
-		candleMap, ok := c.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		close := getFloatFromAny(candleMap["close"])
-		if close > 0 {
-			prices = append(prices, close)
-		}
+	candles := parseOHLCV(candlesRaw)
+	prices := make([]float64, len(candles))
+	for i, c := range candles {
+		prices[i] = c.Close
 	}
 
 	if len(prices) == 0 {

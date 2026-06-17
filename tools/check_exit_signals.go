@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -60,7 +61,7 @@ func evaluateExitSignals(candles []Candle, lookback int) ExitSignalsOutput {
 	case len(reasons) == 0:
 		out.Urgency = "none"
 		out.Detail = "no exit signal"
-	case contains(reasons, "STRUCTURE_BREAK") || len(reasons) >= 2:
+	case slices.Contains(reasons, "STRUCTURE_BREAK") || len(reasons) >= 2:
 		out.Urgency = "high"
 		out.Detail = "consider exiting now"
 	default:
@@ -68,15 +69,6 @@ func evaluateExitSignals(candles []Candle, lookback int) ExitSignalsOutput {
 		out.Detail = "tighten stop / watch closely"
 	}
 	return out
-}
-
-func contains(s []string, v string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
 }
 
 func NewCheckExitSignalsTool() mcp.Tool {

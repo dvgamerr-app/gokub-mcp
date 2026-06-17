@@ -55,29 +55,7 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	candles := make([]OHLCData, 0, len(candlesRaw))
-	volumes := make([]float64, 0, len(candlesRaw))
-
-	for _, c := range candlesRaw {
-		candleMap, ok := c.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		high := getFloatFromAny(candleMap["high"])
-		low := getFloatFromAny(candleMap["low"])
-		close := getFloatFromAny(candleMap["close"])
-		volume := getFloatFromAny(candleMap["volume"])
-
-		if high > 0 && low > 0 && close > 0 {
-			candles = append(candles, OHLCData{
-				High:  high,
-				Low:   low,
-				Close: close,
-			})
-			volumes = append(volumes, volume)
-		}
-	}
+	candles := parseOHLCV(candlesRaw)
 
 	lookback := utils.GetIntArg(args, "lookback", 20)
 	volumeThreshold := utils.GetFloat64Arg(args, "volume_threshold", 1.5)
@@ -88,7 +66,7 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 	}
 
 	currentCandle := candles[len(candles)-1]
-	currentVolume := volumes[len(volumes)-1]
+	currentVolume := currentCandle.Volume
 
 	high20 := 0.0
 	for i := len(candles) - 1 - lookback; i < len(candles)-1; i++ {
@@ -98,8 +76,8 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 	}
 
 	avgVolume := 0.0
-	for i := len(volumes) - 1 - lookback; i < len(volumes)-1; i++ {
-		avgVolume += volumes[i]
+	for i := len(candles) - 1 - lookback; i < len(candles)-1; i++ {
+		avgVolume += candles[i].Volume
 	}
 	avgVolume /= float64(lookback)
 
@@ -109,25 +87,11 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 	}
 
 	signal := "NO_SIGNAL"
-	isBreakout := currentCandle.Close > high20 && volumeRatio >= volumeThreshold
-
-	if isBreakout {
+	if currentCandle.Close > high20 && volumeRatio >= volumeThreshold {
 		signal = "BREAKOUT_BUY"
 	}
 
-	trueRanges := make([]float64, len(candles))
-	for i := range candles {
-		if i == 0 {
-			trueRanges[i] = candles[i].High - candles[i].Low
-		} else {
-			highLow := candles[i].High - candles[i].Low
-			highClose := abs(candles[i].High - candles[i-1].Close)
-			lowClose := abs(candles[i].Low - candles[i-1].Close)
-			trueRanges[i] = max(highLow, max(highClose, lowClose))
-		}
-	}
-
-	atr := calculateATR(trueRanges, 14)
+	atr := atrFromCandles(candles, 14)
 	suggestedStop := currentCandle.Close - (atr * atrMultiplier)
 
 	result := &BreakoutSignal{
@@ -155,22 +119,3 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 	return utils.ArtifactsResult(summary, result)
 }
 
-func getFloatFromAny(v any) float64 {
-	switch val := v.(type) {
-	case float64:
-		return val
-	case int:
-		return float64(val)
-	case int64:
-		return float64(val)
-	default:
-		return 0
-	}
-}
-
-func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}

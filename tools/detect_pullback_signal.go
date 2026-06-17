@@ -3,8 +3,9 @@ package tools
 import (
 	"context"
 	"fmt"
-	"github.com/dvgamerr-app/gokub-mcp/utils"
+	"math"
 
+	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/rs/zerolog/log"
 )
@@ -61,27 +62,12 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	candles := make([]OHLCData, 0, len(candlesRaw))
-	closes := make([]float64, 0, len(candlesRaw))
-
-	for _, c := range candlesRaw {
-		candleMap, ok := c.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		high := getFloatFromAny(candleMap["high"])
-		low := getFloatFromAny(candleMap["low"])
-		close := getFloatFromAny(candleMap["close"])
-
-		if high > 0 && low > 0 && close > 0 {
-			candles = append(candles, OHLCData{
-				High:  high,
-				Low:   low,
-				Close: close,
-			})
-			closes = append(closes, close)
-		}
+	parsed := parseOHLCV(candlesRaw)
+	candles := make([]OHLCData, len(parsed))
+	closes := make([]float64, len(parsed))
+	for i, c := range parsed {
+		candles[i] = OHLCData{High: c.High, Low: c.Low, Close: c.Close}
+		closes[i] = c.Close
 	}
 
 	emaPeriod := utils.GetIntArg(args, "ema_period", 20)
@@ -103,7 +89,7 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 
 	priceToEMAPercent := ((currentCandle.Close - currentEMA) / currentEMA) * 100
 
-	nearEMA := abs(priceToEMAPercent) <= 2.0
+	nearEMA := math.Abs(priceToEMAPercent) <= 2.0
 
 	rsiInBounceZone := rsi >= rsiMin && rsi <= rsiMax
 

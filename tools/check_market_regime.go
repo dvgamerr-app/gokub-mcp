@@ -35,16 +35,9 @@ func CheckMarketRegimeHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return utils.ErrorResult("prices must be an array")
 	}
 
-	prices := make([]float64, len(pricesRaw))
-	for i, p := range pricesRaw {
-		switch v := p.(type) {
-		case float64:
-			prices[i] = v
-		case int:
-			prices[i] = float64(v)
-		default:
-			return utils.ErrorResult("prices must contain numbers only")
-		}
+	prices, err := utils.ParseFloatArray(pricesRaw)
+	if err != nil {
+		return utils.ErrorResult("prices must contain numbers only")
 	}
 
 	lookback := utils.GetIntArg(args, "lookback", 20)

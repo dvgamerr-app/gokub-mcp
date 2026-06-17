@@ -87,6 +87,21 @@ func ArtifactsResult(contents string, args any) (*mcp.CallToolResult, error) {
 	}, nil
 }
 
+func ParseFloatArray(raw []any) ([]float64, error) {
+	out := make([]float64, len(raw))
+	for i, v := range raw {
+		switch n := v.(type) {
+		case float64:
+			out[i] = n
+		case int:
+			out[i] = float64(n)
+		default:
+			return nil, fmt.Errorf("element %d is not a number", i)
+		}
+	}
+	return out, nil
+}
+
 func MustJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
