@@ -101,12 +101,88 @@ PORT=3000 go run main.go
 
 ## 🛠️ Available Tools
 
+**39 tools** covering the full long-only swing-trading workflow (screen → analyze →
+size → place → manage → log).
 
-1. `get_wallet_balance`
-2. `get_ticker`
-3. `get_market_depth`
-4. `get_my_open_orders`
-5. `get_symbols`
+<details open>
+<summary><b>Foundation</b> (7)</summary>
+
+`get_wallet_balance` · `get_ticker` · `get_market_depth` · `get_my_open_orders` ·
+`get_symbols` · `get_symbol_rules` · `get_fee_schedule`
+</details>
+
+<details>
+<summary><b>Market & Liquidity</b> (5)</summary>
+
+`calculate_spread` · `calculate_liquidity_depth` · `get_market_screener` ·
+`get_historical_candles` · `extract_close_prices`
+</details>
+
+<details>
+<summary><b>Indicators</b> (6)</summary>
+
+`calculate_ema` · `calculate_roc` · `calculate_atr` · `calculate_rsi` ·
+`check_market_regime` · `calculate_capm`
+</details>
+
+<details>
+<summary><b>Entry Signals</b> (3)</summary>
+
+`detect_breakout_signal` · `detect_pullback_signal` · `calculate_relative_strength_rank`
+</details>
+
+<details>
+<summary><b>Position & Risk</b> (3)</summary>
+
+`calculate_position_size` · `validate_trade_setup` · `round_to_exchange_rules`
+</details>
+
+<details>
+<summary><b>Order Management</b> (4)</summary>
+
+`place_limit_order` · `place_stop_limit_order` · `cancel_order` · `get_order_status`
+</details>
+
+<details>
+<summary><b>Trade Management</b> (4)</summary>
+
+`check_trade_pnl` · `calculate_trailing_stop` · `check_exit_signals` ·
+`client_side_stop_worker` *(Bitkub has no native stop/OCO — client-side trigger)*
+</details>
+
+<details>
+<summary><b>Logging & Performance</b> (4)</summary>
+
+`log_trade_entry` · `log_trade_exit` · `calculate_expectancy` · `get_trade_history`
+*(flat-file journal `trades.json`, override with `TRADES_FILE`)*
+</details>
+
+<details>
+<summary><b>Helpers</b> (3)</summary>
+
+`get_market_overview` · `simulate_trade` · `pnl_with_fees`
+</details>
+
+## 🧠 Trading Playbook (Plugin / Skill)
+
+The tools are the *hands*; the **`bitkub-trade`** plugin is the *brain* — a playbook
+skill that encodes the strategy (screen → regime → relative-strength → ATR → signal →
+size → **validate gate** → round → place → manage → log) and the hard guardrails
+(≤2% risk/trade, long-only, no entry unless `can_trade=true`, client-side stop, TP ≥2R).
+
+The repo doubles as a plugin marketplace for both Claude Code and Codex.
+
+```bash
+# Claude Code
+/plugin marketplace add dvgamerr-app/gokub-mcp
+/plugin install bitkub-trade@gokub-mcp
+
+# Codex
+codex plugin marketplace add dvgamerr-app/gokub-mcp
+codex plugin add bitkub-trade@gokub-mcp
+```
+
+See [`plugins/bitkub-trade`](plugins/bitkub-trade/README.md) for details.
 
 
 ## ⚙️ Configuration
@@ -169,11 +245,18 @@ BTK_SECRET=your_secret_key
 
 ```
 gokub-mcp/
-├── 📄 main.go              # MCP Server entry point (HTTP/SSE)
-├── 📂 prompts/             # Trading prompts
-├── 📂 resources/           # Market resources
-├── 📂 tools/               # MCP tools implementation
-└── 📂 utils/               # Utility functions
+├── 📄 main.go                      # MCP Server entry point (HTTP/SSE) + tool registration
+├── 📂 tools/                       # 39 MCP tools (+ unit tests)
+├── 📂 prompts/                     # trading_strategy, market_analysis prompts
+├── 📂 resources/                   # bitkub://symbols, bitkub://ticker/{symbol}
+├── 📂 utils/                       # Utility functions
+├── 📂 docs/                        # ASSIGNMENT.md (spec & build progress)
+├── 📂 plugins/bitkub-trade/        # bitkub-trade plugin (playbook skill)
+│   ├── .claude-plugin/plugin.json  # Claude manifest
+│   ├── .codex-plugin/plugin.json   # Codex manifest
+│   └── skills/playbook/SKILL.md    # shared trading playbook
+├── 📂 .claude-plugin/              # Claude plugin marketplace
+└── 📂 .agents/plugins/             # Codex plugin marketplace
 ```
 
 ## 📊 API Rate Limits
@@ -188,21 +271,21 @@ gokub-mcp/
 ## 🚀 Roadmap
 
 ### ✅ Completed
-- [x] Bitkub API golang library
-- [x] MCP Server implementation
-- [x] HTTP/SSE transport
-- [x] Basic wallet & market tools
+- [x] Bitkub API golang library + MCP Server (HTTP/SSE + stdio)
+- [x] **39 trading tools** — foundation, indicators, entry signals, risk, orders, management, logging
+- [x] Risk-based position sizing + pre-trade `validate_trade_setup` gate
+- [x] Client-side stop worker (Bitkub has no native stop/OCO)
+- [x] Trade journal + expectancy (flat-file `trades.json`)
+- [x] **`bitkub-trade` playbook plugin** — installable in Claude Code & Codex
 
-### 🚧 In Progress
-- [ ] Rebalancing Bot
-- [ ] Grid Trading strategy
-- [ ] Advanced order management
+### 🚧 In Progress / Next
+- [ ] `git push` the plugin so the marketplaces resolve from GitHub
+- [ ] Optional MCP prompts/resources for non-Claude/Codex clients
+- [ ] Backtesting over OHLCV history
 
 ### 🎯 Planned Features
-- [ ] Docker Image support
-- [ ] Kubernetes deployment
-- [ ] WebSocket real-time data
-- [ ] Trading bot framework
+- [ ] Rebalancing / Grid strategy presets
+- [ ] Docker image + WebSocket real-time data
 
 ## 📚 References
 
