@@ -57,9 +57,21 @@ go install github.com/dvgamerr-app/gokub-mcp@latest
 
 This installs `gokub-mcp` to `$(go env GOPATH)/bin` by default.
 
+Windows default path:
+
 ```powershell
-# Windows default
-$(go env GOPATH)\bin\gokub-mcp.exe
+# PowerShell
+Write-Output "$env:USERPROFILE\go\bin\gokub-mcp.exe"
+```
+
+```cmd
+:: cmd.exe
+echo %USERPROFILE%\go\bin\gokub-mcp.exe
+```
+
+```nu
+# NuShell
+$env.USERPROFILE | path join go bin gokub-mcp.exe
 ```
 
 ```bash
@@ -100,13 +112,28 @@ claude mcp add bitkub \
   -- "$(go env GOPATH)/bin/gokub-mcp"
 ```
 
-Windows PowerShell:
+Windows:
 
 ```powershell
+# PowerShell
 claude mcp add bitkub `
   -e BTK_APIKEY=your_api_key `
   -e BTK_SECRET=your_secret_key `
-  -- "$(go env GOPATH)\bin\gokub-mcp.exe"
+  -- "$env:USERPROFILE\go\bin\gokub-mcp.exe"
+```
+
+```cmd
+:: cmd.exe
+claude mcp add bitkub ^
+  -e BTK_APIKEY=your_api_key ^
+  -e BTK_SECRET=your_secret_key ^
+  -- "%USERPROFILE%\go\bin\gokub-mcp.exe"
+```
+
+```nu
+# NuShell
+let gokub = ($env.USERPROFILE | path join go bin gokub-mcp.exe)
+claude mcp add bitkub -e BTK_APIKEY=your_api_key -e BTK_SECRET=your_secret_key -- $gokub
 ```
 
 - Add `-s user` to make it global across all projects (default scope is project-local `.mcp.json`).
@@ -121,13 +148,28 @@ codex mcp add bitkub \
   -- "$(go env GOPATH)/bin/gokub-mcp"
 ```
 
-Windows PowerShell:
+Windows:
 
 ```powershell
+# PowerShell
 codex mcp add bitkub `
   --env BTK_APIKEY=your_api_key `
   --env BTK_SECRET=your_secret_key `
-  -- "$(go env GOPATH)\bin\gokub-mcp.exe"
+  -- "$env:USERPROFILE\go\bin\gokub-mcp.exe"
+```
+
+```cmd
+:: cmd.exe
+codex mcp add bitkub ^
+  --env BTK_APIKEY=your_api_key ^
+  --env BTK_SECRET=your_secret_key ^
+  -- "%USERPROFILE%\go\bin\gokub-mcp.exe"
+```
+
+```nu
+# NuShell
+let gokub = ($env.USERPROFILE | path join go bin gokub-mcp.exe)
+codex mcp add bitkub --env BTK_APIKEY=your_api_key --env BTK_SECRET=your_secret_key -- $gokub
 ```
 
 …or edit `~/.codex/config.toml` directly:
@@ -185,11 +227,11 @@ Then point an SSE-capable client at `http://localhost:8080/sse`. Override the po
 ### HTTP/SSE Server Mode
 
 ```bash
-# Default port 8080
+# Default port 3000
 go run main.go
 
 # Custom port
-PORT=3000 go run main.go
+PORT=9000 go run main.go
 ```
 
 <details>
