@@ -86,6 +86,11 @@ func main() {
 	s.AddTool(tools.NewSymbolRulesTool(), tools.SymbolRulesHandler)
 	s.AddTool(tools.NewRoundToExchangeRulesTool(), tools.RoundToExchangeRulesHandler)
 	s.AddTool(tools.NewValidateTradeSetupTool(), tools.ValidateTradeSetupHandler)
+	s.AddTool(tools.NewPlaceLimitOrderTool(), tools.PlaceLimitOrderHandler)
+	s.AddTool(tools.NewPlaceStopLimitOrderTool(), tools.PlaceStopLimitOrderHandler)
+	s.AddTool(tools.NewClientSideStopWorkerTool(), tools.ClientSideStopWorkerHandler)
+	s.AddTool(tools.NewGetOrderStatusTool(), tools.GetOrderStatusHandler)
+	s.AddTool(tools.NewCancelOrderTool(), tools.CancelOrderHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)
