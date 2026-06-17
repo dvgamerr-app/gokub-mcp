@@ -1,4 +1,6 @@
 # Binaries for programs and plugins
+/gokub
+/gokub-mcp
 *.exe
 *.exe~
 *.dll
@@ -18,3 +20,6 @@ docs/ASSIGNMENT.md
 
 # trade journal (runtime data)
 trades.json
+
+# Go vendor dir (generate on demand with `go mod vendor` for offline/hermetic Docker builds)
+vendor/

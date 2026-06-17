@@ -1,4 +1,4 @@
-module gokub
+module github.com/dvgamerr-app/gokub-mcp
 
 go 1.25.5
 

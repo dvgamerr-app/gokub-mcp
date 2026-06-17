@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
-	"gokub/utils"
+	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"

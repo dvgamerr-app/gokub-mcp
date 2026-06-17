@@ -46,18 +46,36 @@
 
 ## 🔧 Installation
 
-> Fastest path: **build the server → register it as an MCP server in Claude Code / Codex →
+> Fastest path: **install the server → register it as an MCP server in Claude Code / Codex →
 > install the `bitkub-trade` playbook plugin.** Steps 3–5 are the important part.
 
-### 1️⃣ Build the MCP server
+### 1️⃣ Install the MCP server
+
+```bash
+go install github.com/dvgamerr-app/gokub-mcp@latest
+```
+
+This installs `gokub-mcp` to `$(go env GOPATH)/bin` by default.
+
+```powershell
+# Windows default
+$(go env GOPATH)\bin\gokub-mcp.exe
+```
+
+```bash
+# macOS/Linux default
+$(go env GOPATH)/bin/gokub-mcp
+```
+
+For local development from a clone:
 
 ```bash
 git clone https://github.com/dvgamerr-app/gokub-mcp.git
 cd gokub-mcp
-go build -o bitkub-mcp .          # Windows: go build -o bitkub-mcp.exe .
+go install .
 ```
 
-> Prefer containers? Skip the build and use [🐳 Docker](#-docker) (HTTP/SSE mode).
+> Prefer containers? Use [🐳 Docker](#-docker) (HTTP/SSE mode).
 
 ### 2️⃣ Credentials
 
@@ -79,7 +97,16 @@ inline with `-e`:
 claude mcp add bitkub \
   -e BTK_APIKEY=your_api_key \
   -e BTK_SECRET=your_secret_key \
-  -- /absolute/path/to/bitkub-mcp
+  -- "$(go env GOPATH)/bin/gokub-mcp"
+```
+
+Windows PowerShell:
+
+```powershell
+claude mcp add bitkub `
+  -e BTK_APIKEY=your_api_key `
+  -e BTK_SECRET=your_secret_key `
+  -- "$(go env GOPATH)\bin\gokub-mcp.exe"
 ```
 
 - Add `-s user` to make it global across all projects (default scope is project-local `.mcp.json`).
@@ -91,14 +118,23 @@ claude mcp add bitkub \
 codex mcp add bitkub \
   --env BTK_APIKEY=your_api_key \
   --env BTK_SECRET=your_secret_key \
-  -- /absolute/path/to/bitkub-mcp
+  -- "$(go env GOPATH)/bin/gokub-mcp"
+```
+
+Windows PowerShell:
+
+```powershell
+codex mcp add bitkub `
+  --env BTK_APIKEY=your_api_key `
+  --env BTK_SECRET=your_secret_key `
+  -- "$(go env GOPATH)\bin\gokub-mcp.exe"
 ```
 
 …or edit `~/.codex/config.toml` directly:
 
 ```toml
 [mcp_servers.bitkub]
-command = "/absolute/path/to/bitkub-mcp"
+command = "/absolute/path/to/gokub-mcp"
 args = []
 
 [mcp_servers.bitkub.env]
@@ -131,15 +167,18 @@ Runs the server in **HTTP/SSE mode** (good for a shared/remote server; for a loc
 client that spawns the binary over stdio, use the native build above):
 
 ```bash
-docker build -t bitkub-mcp .
+docker build -t gokub-mcp .
 docker run --rm -p 8080:8080 \
   -e BTK_APIKEY=your_api_key \
   -e BTK_SECRET=your_secret_key \
-  bitkub-mcp
+  gokub-mcp
 ```
 
 Then point an SSE-capable client at `http://localhost:8080/sse`. Override the port with
 `-e PORT=9000 -p 9000:9000`.
+
+> The build fetches Go deps from the module proxy (needs internet). For an offline /
+> hermetic build, run `go mod vendor` first and build with `-mod=vendor`.
 
 ## 🎮 Usage
 

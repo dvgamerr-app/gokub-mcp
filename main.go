@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"gokub/prompts"
-	"gokub/resources"
-	"gokub/tools"
-	"gokub/utils"
+	"github.com/dvgamerr-app/gokub-mcp/prompts"
+	"github.com/dvgamerr-app/gokub-mcp/resources"
+	"github.com/dvgamerr-app/gokub-mcp/tools"
+	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"os"
 
 	"github.com/dvgamerr-app/go-bitkub/bitkub"

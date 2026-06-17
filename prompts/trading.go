@@ -3,7 +3,7 @@ package prompts
 import (
 	"context"
 	"fmt"
-	"gokub/utils"
+	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"strings"
 
 	"github.com/dvgamerr-app/go-bitkub/market"
