@@ -1,6 +1,9 @@
 package tools
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestComputePnL(t *testing.T) {
 	// entry 50, current 55, qty 16, stop 47.5, fees 0 -> gross +80, R = 80/(2.5*16)=2.0
@@ -40,7 +43,7 @@ func TestEvaluateExitSignals(t *testing.T) {
 	if !out.ShouldExit || out.Urgency != "high" {
 		t.Fatalf("expected high-urgency exit, got should_exit=%v urgency=%s reasons=%v", out.ShouldExit, out.Urgency, out.Reasons)
 	}
-	if !contains(out.Reasons, "STRUCTURE_BREAK") {
+	if !slices.Contains(out.Reasons, "STRUCTURE_BREAK") {
 		t.Fatalf("expected STRUCTURE_BREAK, got %v", out.Reasons)
 	}
 
