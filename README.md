@@ -124,10 +124,7 @@ claude mcp add bitkub `
 
 ```cmd
 :: cmd.exe
-claude mcp add bitkub ^
-  -e BTK_APIKEY=your_api_key ^
-  -e BTK_SECRET=your_secret_key ^
-  -- "%USERPROFILE%\go\bin\gokub-mcp.exe"
+claude mcp add bitkub -e BTK_APIKEY=your_api_key -e BTK_SECRET=your_secret_key -- "%USERPROFILE%\go\bin\gokub-mcp.exe"
 ```
 
 ```nu
@@ -142,7 +139,7 @@ claude mcp add bitkub -e BTK_APIKEY=your_api_key -e BTK_SECRET=your_secret_key -
 ### 4️⃣ Register the MCP server in Codex
 
 ```bash
-codex mcp add bitkub \
+codex mcp add gokub \
   --env BTK_APIKEY=your_api_key \
   --env BTK_SECRET=your_secret_key \
   -- "$(go env GOPATH)/bin/gokub-mcp"
@@ -152,7 +149,7 @@ Windows:
 
 ```powershell
 # PowerShell
-codex mcp add bitkub `
+codex mcp add gokub `
   --env BTK_APIKEY=your_api_key `
   --env BTK_SECRET=your_secret_key `
   -- "$env:USERPROFILE\go\bin\gokub-mcp.exe"
@@ -160,7 +157,7 @@ codex mcp add bitkub `
 
 ```cmd
 :: cmd.exe
-codex mcp add bitkub ^
+codex mcp add gokub ^
   --env BTK_APIKEY=your_api_key ^
   --env BTK_SECRET=your_secret_key ^
   -- "%USERPROFILE%\go\bin\gokub-mcp.exe"
@@ -169,17 +166,17 @@ codex mcp add bitkub ^
 ```nu
 # NuShell
 let gokub = ($env.USERPROFILE | path join go bin gokub-mcp.exe)
-codex mcp add bitkub --env BTK_APIKEY=your_api_key --env BTK_SECRET=your_secret_key -- $gokub
+codex mcp add gokub --env BTK_APIKEY=your_api_key --env BTK_SECRET=your_secret_key -- $gokub
 ```
 
 …or edit `~/.codex/config.toml` directly:
 
 ```toml
-[mcp_servers.bitkub]
+[mcp_servers.gokub]
 command = "/absolute/path/to/gokub-mcp"
 args = []
 
-[mcp_servers.bitkub.env]
+[mcp_servers.gokub.env]
 BTK_APIKEY = "your_api_key"
 BTK_SECRET = "your_secret_key"
 ```
@@ -347,7 +344,7 @@ point it at the SSE endpoint:
 ```json
 {
   "mcpServers": {
-    "bitkub": { "url": "http://localhost:3000/sse", "transport": "sse" }
+    "gokub": { "url": "http://localhost:3000/sse", "transport": "sse" }
   }
 }
 ```
