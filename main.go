@@ -83,6 +83,9 @@ func main() {
 	s.AddTool(tools.NewDetectPullbackSignalTool(), tools.DetectPullbackSignalHandler)
 	s.AddTool(tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler)
 	s.AddTool(tools.NewCalculateCAPMTool(), tools.CalculateCAPMHandler)
+	s.AddTool(tools.NewSymbolRulesTool(), tools.SymbolRulesHandler)
+	s.AddTool(tools.NewRoundToExchangeRulesTool(), tools.RoundToExchangeRulesHandler)
+	s.AddTool(tools.NewValidateTradeSetupTool(), tools.ValidateTradeSetupHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)

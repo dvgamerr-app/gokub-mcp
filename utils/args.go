@@ -49,6 +49,19 @@ func GetIntArg(args map[string]any, key string, defaultValue ...int) int {
 	return defaultValue[0]
 }
 
+func GetBoolArg(args map[string]any, key string, defaultValue ...bool) bool {
+	if val, ok := args[key]; ok {
+		if bval, ok := val.(bool); ok {
+			return bval
+		}
+	}
+	if len(defaultValue) == 0 {
+		return false
+	}
+
+	return defaultValue[0]
+}
+
 func ValidateArgs(args any) (map[string]any, error) {
 	argsMap, ok := args.(map[string]any)
 	if !ok {
