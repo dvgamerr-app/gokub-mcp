@@ -98,6 +98,9 @@ func main() {
 	s.AddTool(tools.NewLogTradeExitTool(), tools.LogTradeExitHandler)
 	s.AddTool(tools.NewCalculateExpectancyTool(), tools.CalculateExpectancyHandler)
 	s.AddTool(tools.NewGetTradeHistoryTool(), tools.GetTradeHistoryHandler)
+	s.AddTool(tools.NewGetMarketOverviewTool(), tools.GetMarketOverviewHandler)
+	s.AddTool(tools.NewSimulateTradeTool(), tools.SimulateTradeHandler)
+	s.AddTool(tools.NewPnLWithFeesTool(), tools.PnLWithFeesHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)
