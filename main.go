@@ -91,6 +91,9 @@ func main() {
 	s.AddTool(tools.NewClientSideStopWorkerTool(), tools.ClientSideStopWorkerHandler)
 	s.AddTool(tools.NewGetOrderStatusTool(), tools.GetOrderStatusHandler)
 	s.AddTool(tools.NewCancelOrderTool(), tools.CancelOrderHandler)
+	s.AddTool(tools.NewCheckTradePnLTool(), tools.CheckTradePnLHandler)
+	s.AddTool(tools.NewCalculateTrailingStopTool(), tools.CalculateTrailingStopHandler)
+	s.AddTool(tools.NewCheckExitSignalsTool(), tools.CheckExitSignalsHandler)
 
 	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
 	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)
