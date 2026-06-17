@@ -1,0 +1,39 @@
+version: 2
+
+builds:
+  - main: .
+    binary: gokub-mcp
+    goos: [linux, windows, darwin]
+    goarch: [amd64, arm64]
+    env: [CGO_ENABLED=0]
+    ldflags: ["-s -w -X main.version={{.Version}}"]
+
+archives:
+  - format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+release:
+  github:
+    owner: dvgamerr-app
+    name: gokub-mcp
+  name_template: "v{{.Version}}"
+
+changelog:
+  sort: asc
+  use: github
+  groups:
+    - title: "New Features"
+      regexp: '^feat'
+      order: 0
+    - title: "Bug Fixes"
+      regexp: '^fix'
+      order: 1
+    - title: "Refactor"
+      regexp: '^refactor'
+      order: 2
+    - title: "Other"
+      order: 99
+  filters:
+    exclude: ['^docs:', '^test:', '^chore:', Merge pull request, Merge branch]
