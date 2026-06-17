@@ -1,0 +1,15 @@
+{
+  "name": "gokub-mcp",
+  "owner": {
+    "name": "dvgamerr-app",
+    "email": "kananekt@scg.com"
+  },
+  "description": "Bitkub trading playbooks and tools for the gokub-mcp server",
+  "plugins": [
+    {
+      "name": "bitkub-trade",
+      "source": "./plugins/bitkub-trade",
+      "description": "Playbook for swing-trading the long side on Bitkub (THB pairs) using the gokub-mcp tools"
+    }
+  ]
+}
