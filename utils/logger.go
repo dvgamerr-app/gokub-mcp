@@ -13,9 +13,9 @@ func InitLogger() {
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 
 	logFormat := strings.ToLower(os.Getenv("LOG_FORMAT"))
-	var output io.Writer = os.Stdout
+	var output io.Writer = os.Stderr
 	if logFormat == "text" {
-		output = zerolog.ConsoleWriter{Out: os.Stdout}
+		output = zerolog.ConsoleWriter{Out: os.Stderr}
 	}
 
 	logLevel := strings.ToLower(os.Getenv("LOG_LEVEL"))
