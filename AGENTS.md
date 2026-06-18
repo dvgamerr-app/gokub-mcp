@@ -30,6 +30,9 @@ docs/                    images & docs
   test when the logic is non-trivial.
 - Tool shape: `New…Tool() mcp.Tool` + a handler that validates args via `utils/`,
   returns `utils.ErrorResult` / `utils.ArtifactsResult`, and logs with zerolog.
+- **Skill edit → bump `version` in the skill's frontmatter** (semver patch for fixes,
+  minor for rule changes). Every edit to `plugins/bitkub-trade/skills/**/SKILL.md`
+  must include a version bump in that same commit.
 
 ## Trading safety
 

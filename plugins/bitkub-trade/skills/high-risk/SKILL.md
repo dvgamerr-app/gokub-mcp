@@ -1,10 +1,10 @@
 ---
 name: high-risk
 description: >-
-  High-risk overlay for Bitkub swing trading. Up to 3% risk per trade, BTC + ETH + top-10 altcoins allowed, smaller cash reserve, shorter entry timeframe. Use when asked to trade aggressively, maximize returns, or "high risk". Applies looser filters on top of the playbook — read this first, then follow the playbook. Always confirm with the user before placing a real order, unless the user has explicitly waived confirmation for this session.
+  High-risk overlay for Bitkub swing trading. Up to 3% risk per trade, BTC + ETH + top-10 altcoins allowed, no minimum cash reserve floor, shorter entry timeframe. Use when asked to trade aggressively, maximize returns, or "high risk". Applies looser filters on top of the playbook — read this first, then follow the playbook. Always confirm with the user before placing a real order, unless the user has explicitly waived confirmation for this session.
 license: MIT
 author: Kananek T.
-version: 0.1
+version: 0.2
 category: trading
 ---
 
@@ -48,15 +48,14 @@ position sizing — not abandoning the system.
 
 | Bucket | Allocation | Purpose |
 |--------|-----------|---------|
-| Cash reserve | **≥ 30% of equity** | Minimum floor; never go all-in |
-| Active capital | ≤ 70% of equity | Tradeable pool |
-| Risk per trade | **≤ 3% of equity** | Hard ceiling |
+| Active capital | 100% of equity | Deploy what you have; small portfolio is fine |
+| Risk per trade | **≤ 3% of equity** | Hard ceiling — expressed as % loss if stop hits |
 | Max open positions | 3 concurrent | Avoid overexposure |
 
-> Example: 100,000 THB → 30,000 cash → 70,000 active → risk ≤ 3,000 THB per trade.
+> Example: 10,000 THB equity → risk ≤ 300 THB per trade (3%). 100,000 THB → risk ≤ 3,000 THB per trade.
+> Portfolio size does not matter — only % risk per trade and % gain/loss do.
 
-Check `get_wallet_balance` before every session. If cash < 30%, reduce or close a
-position before opening a new one.
+Check `get_wallet_balance` before every session.
 
 ## Symbol filter
 

@@ -4,7 +4,7 @@ description: >-
   Playbook for swing-trading the long side on Bitkub (THB pairs) using the gokub-mcp tools. Use when asked to find a trade, screen coins, evaluate an entry, size a position, place/manage an order, or review trading performance on Bitkub. Encodes the risk rules, the screen→regime→signal→size→validate→place→manage→log flow, and Bitkub-specific constraints (no native stop/OCO).
 license: MIT
 author: Kananek T.
-version: 0.2
+version: 0.4
 category: trading
 ---
 
@@ -13,6 +13,12 @@ category: trading
 Long-only swing trading on Bitkub THB pairs via the gokub-mcp tools. The tools are
 the hands; this is the brain. Follow the flow, respect the guardrails, never skip the
 validation gate.
+
+## Execution discipline (never violate)
+
+- **Run the full flow autonomously.** Never pause mid-flow to ask whether to continue. Screen → regime → signal → size → validate → decide — all in one pass.
+- **Report results, not options.** End with a decision table (pass/fail per coin, with entry/stop/TP for any that pass) and the reason. Never end with "ถ้าต้องการจะรันต่อ…" or any conditional offer.
+- **No raw data dumps.** Never return raw candle arrays or large result blobs to the user. Summarize each intermediate step in ≤ 1 line.
 
 ## Hard guardrails (never violate)
 
@@ -52,15 +58,17 @@ Before screening for new trades, check what you already hold.
 3. `get_my_open_orders` — collect all symbols that already have a pending limit order on
    the exchange. **Skip the entry step for any symbol already on this list.** This prevents
    duplicate orders when the skill runs on a recurring schedule (e.g. every 2H).
-4. If cash < minimum reserve (see skill overlay) after exits → do **not** open new positions
-   this session. Review only.
+4. If available THB < **200 THB** (the highest `min_quote_size` across all symbols) after
+   exits → do **not** open new positions this session. Review only. Do **not** ask the user
+   — decide silently based on `get_wallet_balance` result.
 
 Only after all urgent exits are handled, proceed to step 1 for new entries.
 
 ---
 
 1. **Shortlist** — `get_market_screener` (volume, spread, depth) or `get_market_overview`
-   for context. Keep 5–10 liquid THB pairs.
+   for context. Scan **all THB pairs**; keep 5–10 most liquid. Never restrict to a single
+   symbol unless the user explicitly names one.
 2. **Regime filter** — `get_historical_candles` (1D) → `check_market_regime(prices)`.
    Trade only if UPTREND. (Confirm with `calculate_ema`: close > EMA200, EMA50 > EMA200.)
 3. **Relative strength** — `calculate_relative_strength_rank(symbols[], benchmark=btc_thb)`.
@@ -93,6 +101,17 @@ Only after all urgent exits are handled, proceed to step 1 for new entries.
 
 - `get_trade_history(status_filter=closed)` and `calculate_expectancy`. Expectancy =
   win% × avgWinR − (1−win%) × avgLossR. If negative, change ONE variable and re-test.
+
+## Minimum order size per symbol (`min_quote_size`)
+
+The minimum THB amount per buy order (`place_limit_order side=buy`). Source: `GET /api/v3/market/symbols`.
+
+| Min (THB) | Symbols |
+|-----------|---------|
+| **200 THB** | NEXO |
+| **10 THB** | ALL SYMBOL _(all `_THB` pairs)_ |
+
+> Step 8 (`round_to_exchange_rules`) rejects orders below this threshold (`valid=false`). Never place an order smaller than the symbol's `min_quote_size`.
 
 ## Notes
 
