@@ -115,7 +115,7 @@ The minimum THB amount per buy order (`place_limit_order side=buy`). Source: `GE
 
 ## Notes
 
-- All symbols use lowercase `btc_thb`; the library normalizes to `THB_BTC` for the API.
+- **All tool calls** (including `round_to_exchange_rules`, `get_historical_candles`, `check_trade_pnl`, etc.) must receive symbols in lowercase `coin_thb` format (e.g. `btc_thb`, `eth_thb`). **Never pass `THB_BTC` or uppercase** — the MCP library normalizes the format for the Bitkub API internally; your job is only to pass `coin_thb`.
 - `place_limit_order` amount: **buy = THB to spend**, **sell = coin quantity**.
 - Fees are charged both legs — the PnL/sizing tools already net them; don't double-count.
 - The trade journal is a flat file (`trades.json`, override with env `TRADES_FILE`).
