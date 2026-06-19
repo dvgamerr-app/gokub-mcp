@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitkub MCP Server — Trade Bitkub from your AI copilot</title>
+<meta name="description" content="A Model Context Protocol server that connects Claude & Codex to the Bitkub exchange. 39 trading tools, a long-only swing-trading playbook, and hard risk guardrails — in Go.">
+<meta name="theme-color" content="#05080a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Bitkub MCP Server — Trade Bitkub from your AI copilot">
+<meta property="og:description" content="39 trading tools + a risk-guarded swing-trading playbook for Claude & Codex. Screen → analyze → size → place → manage → log.">
+<meta property="og:image" content="og-image.png">
+<meta property="og:url" content="https://dvgamerr-app.github.io/gokub-mcp/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2305080a'/%3E%3Cg stroke='%2318e08e' stroke-width='2.4' stroke-linecap='round'%3E%3Cline x1='9' y1='7' x2='9' y2='25'/%3E%3Cline x1='16' y1='4' x2='16' y2='28'/%3E%3Cline x1='23' y1='10' x2='23' y2='22'/%3E%3C/g%3E%3Crect x='6.5' y='12' width='5' height='9' rx='1.5' fill='%2318e08e'/%3E%3Crect x='13.5' y='9' width='5' height='13' rx='1.5' fill='%2356f0b0'/%3E%3Crect x='20.5' y='14' width='5' height='5' rx='1.5' fill='%2318e08e'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05080a; --bg-2:#080d11; --surface:#0d141a; --surface-2:#111a22;
+  --line:#1d2832; --line-2:#26333f;
+  --text:#e8eef3; --muted:#9aabb8; --faint:#6b7c8a;
+  --brand:#18e08e; --brand-2:#56f0b0; --brand-deep:#0fa869;
+  --cyan:#34d8e0; --amber:#ffb454; --danger:#ff6b6b;
+  --r-sm:10px; --r:16px; --r-lg:24px;
+  --maxw:1140px;
+  --shadow:0 24px 60px -28px rgba(0,0,0,.85);
+  --glow:0 0 0 1px rgba(24,224,142,.16), 0 24px 80px -32px rgba(24,224,142,.45);
+  --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  --display:'Space Grotesk',var(--sans);
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:84px;-webkit-text-size-adjust:100%}
+body{
+  margin:0;font-family:var(--sans);background:var(--bg);color:var(--text);
+  line-height:1.6;font-size:16px;letter-spacing:-.01em;overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+body::before{
+  content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:
+    radial-gradient(900px 520px at 78% -8%, rgba(24,224,142,.16), transparent 60%),
+    radial-gradient(820px 600px at 8% 4%, rgba(52,216,224,.10), transparent 55%),
+    radial-gradient(700px 700px at 50% 112%, rgba(24,224,142,.08), transparent 60%);
+}
+body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.4;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:64px 64px;
+  -webkit-mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000,transparent 75%);
+          mask-image:radial-gradient(ellipse 80% 60% at 50% 0%,#000,transparent 75%);
+}
+a{color:inherit;text-decoration:none}
+img{max-width:100%;display:block}
+h1,h2,h3{font-family:var(--display);font-weight:600;letter-spacing:-.03em;line-height:1.1;margin:0}
+p{margin:0}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
+  font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--brand-2);
+  background:rgba(24,224,142,.07);border:1px solid rgba(24,224,142,.2);
+  padding:7px 14px;border-radius:999px;
+}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--brand);box-shadow:0 0 10px var(--brand)}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  min-height:48px;padding:0 22px;border-radius:999px;font-weight:600;font-size:15px;
+  border:1px solid transparent;cursor:pointer;transition:transform .15s ease,box-shadow .25s ease,background .2s ease,border-color .2s ease;
+  white-space:nowrap;
+}
+.btn svg{width:18px;height:18px}
+.btn-primary{background:linear-gradient(180deg,var(--brand-2),var(--brand));color:#04140c;box-shadow:var(--glow)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(24,224,142,.3),0 28px 70px -26px rgba(24,224,142,.7)}
+.btn-ghost{background:rgba(255,255,255,.03);color:var(--text);border-color:var(--line-2)}
+.btn-ghost:hover{transform:translateY(-2px);border-color:var(--brand);background:rgba(24,224,142,.06)}
+.btn-sm{min-height:42px;padding:0 18px;font-size:14px}
+
+/* header */
+header{position:sticky;top:0;z-index:50;border-bottom:1px solid transparent;transition:.3s}
+header.scrolled{background:rgba(5,8,10,.72);backdrop-filter:blur(16px);border-bottom-color:var(--line)}
+.nav{display:flex;align-items:center;gap:18px;height:72px}
+.brand{display:flex;align-items:center;gap:11px;font-family:var(--display);font-weight:700;font-size:17px;letter-spacing:-.02em}
+.brand .logo{width:34px;height:34px;flex:none}
+.brand small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;color:var(--faint);letter-spacing:.08em;margin-top:-2px}
+.nav-links{display:flex;gap:6px;margin-left:auto}
+.nav-links a{
+  padding:9px 14px;border-radius:999px;color:var(--muted);font-size:14.5px;font-weight:500;
+  transition:.18s;position:relative;
+}
+.nav-links a:hover,.nav-links a.active{color:var(--text);background:rgba(255,255,255,.05)}
+.nav-cta{display:flex;gap:10px;align-items:center}
+.nav-toggle{display:none;background:none;border:1px solid var(--line-2);border-radius:10px;width:44px;height:44px;cursor:pointer;color:var(--text);align-items:center;justify-content:center}
+.nav-toggle svg{width:22px;height:22px}
+
+/* hero */
+.hero{padding:84px 0 64px;position:relative}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:52px;align-items:center}
+.hero h1{font-size:clamp(2.5rem,5.4vw,4.15rem);margin:22px 0 0}
+.hero h1 .grad{background:linear-gradient(110deg,var(--brand-2),var(--cyan));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lede{font-size:clamp(1.05rem,1.6vw,1.22rem);color:var(--muted);margin-top:22px;max-width:560px}
+.hero .lede b{color:var(--text);font-weight:600}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;margin-top:34px}
+.hero-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px;align-items:center;color:var(--faint);font-size:13.5px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:6px 13px;border:1px solid var(--line);border-radius:999px;background:var(--surface);font-size:13px;color:var(--muted);font-weight:500}
+.chip svg{width:15px;height:15px;color:var(--brand)}
+
+/* terminal card */
+.terminal{
+  background:linear-gradient(180deg,var(--surface-2),var(--surface));
+  border:1px solid var(--line-2);border-radius:var(--r-lg);box-shadow:var(--shadow);
+  overflow:hidden;position:relative;
+}
+.terminal::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1px;background:linear-gradient(160deg,rgba(24,224,142,.45),transparent 40%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.term-bar{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
+.term-dot{width:12px;height:12px;border-radius:50%}
+.term-bar .t-title{margin-left:10px;font-family:var(--mono);font-size:12.5px;color:var(--faint)}
+.term-body{padding:22px 22px 26px;font-family:var(--mono);font-size:13.5px;line-height:1.85;overflow-x:auto}
+.term-body .c-prompt{color:var(--brand)}
+.term-body .c-cmd{color:var(--text)}
+.term-body .c-flag{color:var(--cyan)}
+.term-body .c-cmt{color:var(--faint)}
+.term-body .c-ok{color:var(--brand-2)}
+.term-body .ln{display:block;white-space:pre}
+.term-cursor{display:inline-block;width:9px;height:16px;background:var(--brand);vertical-align:-2px;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:54px}
+.stat{background:var(--bg-2);padding:24px 20px;text-align:center}
+.stat .n{font-family:var(--display);font-size:clamp(1.7rem,3vw,2.3rem);font-weight:700;color:var(--text);line-height:1}
+.stat .n .u{color:var(--brand);font-size:.6em}
+.stat .l{color:var(--faint);font-size:13px;margin-top:8px;letter-spacing:.02em}
+
+/* sections */
+section{padding:84px 0}
+.sec-head{max-width:680px;margin:0 auto 52px;text-align:center}
+.sec-head h2{font-size:clamp(1.9rem,3.6vw,2.85rem);margin:16px 0 0}
+.sec-head p{color:var(--muted);margin-top:16px;font-size:1.05rem}
+
+/* feature cards */
+.features{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.card{
+  background:linear-gradient(180deg,var(--surface),var(--bg-2));
+  border:1px solid var(--line);border-radius:var(--r);padding:26px;
+  transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;position:relative;overflow:hidden;
+}
+.card:hover{transform:translateY(-4px);border-color:var(--line-2);box-shadow:var(--shadow)}
+.card .ic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;background:rgba(24,224,142,.1);border:1px solid rgba(24,224,142,.22);color:var(--brand);margin-bottom:18px}
+.card .ic svg{width:24px;height:24px}
+.card h3{font-size:1.18rem;margin-bottom:9px}
+.card p{color:var(--muted);font-size:14.5px}
+.card .tag{position:absolute;top:20px;right:20px;font-family:var(--mono);font-size:11px;color:var(--brand);background:rgba(24,224,142,.08);border:1px solid rgba(24,224,142,.2);padding:3px 9px;border-radius:999px}
+
+/* flow / pipeline */
+.flow-sec{background:linear-gradient(180deg,transparent,rgba(24,224,142,.03),transparent)}
+.flow{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-items:stretch;margin-top:8px}
+.flow-step{
+  flex:1 1 150px;min-width:140px;max-width:200px;background:var(--surface);border:1px solid var(--line);
+  border-radius:14px;padding:18px 16px;position:relative;text-align:center;transition:.2s;
+}
+.flow-step:hover{border-color:var(--brand);background:rgba(24,224,142,.05)}
+.flow-step .step-n{font-family:var(--mono);font-size:11px;color:var(--brand);letter-spacing:.1em}
+.flow-step .step-t{font-family:var(--display);font-weight:600;font-size:1.02rem;margin-top:6px}
+.flow-step .step-d{color:var(--faint);font-size:12.5px;margin-top:5px}
+.flow-arrow{display:flex;align-items:center;color:var(--line-2)}
+.flow-arrow svg{width:22px;height:22px}
+
+/* two-up: hands vs brain */
+.duo{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:stretch}
+.duo .card{padding:32px}
+.duo .card.brain{background:linear-gradient(170deg,rgba(24,224,142,.1),var(--bg-2));border-color:rgba(24,224,142,.28)}
+.duo h3{font-size:1.4rem;display:flex;align-items:center;gap:11px}
+.duo ul{list-style:none;padding:0;margin:18px 0 0;display:grid;gap:11px}
+.duo li{display:flex;gap:11px;color:var(--muted);font-size:14.5px}
+.duo li svg{width:19px;height:19px;color:var(--brand);flex:none;margin-top:2px}
+.duo li b{color:var(--text);font-weight:600}
+
+/* tools */
+.tools-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.tool-cat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+.tool-cat .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.tool-cat h3{font-size:1.05rem}
+.tool-cat .cnt{font-family:var(--mono);font-size:12px;color:var(--brand);background:rgba(24,224,142,.08);border:1px solid rgba(24,224,142,.2);padding:3px 9px;border-radius:999px}
+.tool-cat .tlist{display:flex;flex-wrap:wrap;gap:6px}
+.tool-cat code{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--bg);border:1px solid var(--line);padding:4px 8px;border-radius:7px;transition:.15s}
+.tool-cat code:hover{color:var(--brand-2);border-color:var(--line-2)}
+
+/* install */
+.steps{display:grid;gap:18px;max-width:840px;margin:0 auto}
+.step{display:grid;grid-template-columns:auto 1fr;gap:20px;align-items:start}
+.step .num{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-family:var(--display);font-weight:700;background:rgba(24,224,142,.12);border:1px solid rgba(24,224,142,.28);color:var(--brand)}
+.step .body{flex:1;min-width:0}
+.step h3{font-size:1.12rem;margin-bottom:4px}
+.step .sd{color:var(--muted);font-size:14px;margin-bottom:12px}
+.code{
+  position:relative;background:#04080b;border:1px solid var(--line-2);border-radius:var(--r-sm);
+  font-family:var(--mono);font-size:13px;overflow:hidden;
+}
+.code pre{margin:0;padding:16px 52px 16px 18px;overflow-x:auto;color:#cfe5d8;line-height:1.7}
+.code .c-flag{color:var(--cyan)}
+.code .c-cmt{color:var(--faint)}
+.copy{
+  position:absolute;top:10px;right:10px;background:rgba(255,255,255,.05);border:1px solid var(--line-2);
+  color:var(--muted);border-radius:8px;width:34px;height:34px;display:grid;place-items:center;cursor:pointer;transition:.15s;
+}
+.copy:hover{color:var(--brand);border-color:var(--brand)}
+.copy svg{width:16px;height:16px}
+.copy.copied{color:var(--brand);border-color:var(--brand)}
+
+/* cta band */
+.cta-band{text-align:center;background:linear-gradient(160deg,rgba(24,224,142,.12),rgba(52,216,224,.06));border:1px solid rgba(24,224,142,.25);border-radius:var(--r-lg);padding:56px 28px;position:relative;overflow:hidden}
+.cta-band h2{font-size:clamp(1.8rem,3.4vw,2.6rem)}
+.cta-band p{color:var(--muted);max-width:520px;margin:14px auto 0}
+.cta-band .hero-actions{justify-content:center}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:52px 0 40px;margin-top:40px}
+.foot{display:flex;justify-content:space-between;gap:32px;flex-wrap:wrap}
+.foot .brand{margin-bottom:14px}
+.foot p{color:var(--faint);font-size:14px;max-width:320px}
+.foot-cols{display:flex;gap:56px;flex-wrap:wrap}
+.foot-col h4{font-family:var(--display);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin:0 0 14px}
+.foot-col a{display:block;color:var(--muted);font-size:14px;padding:5px 0;transition:.15s}
+.foot-col a:hover{color:var(--brand)}
+.foot-bottom{margin-top:40px;padding-top:24px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;color:var(--faint);font-size:13px}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+.reveal.in{opacity:1;transform:none}
+
+@media (max-width:900px){
+  .hero-grid{grid-template-columns:1fr;gap:40px}
+  .features,.tools-grid{grid-template-columns:repeat(2,1fr)}
+  .duo{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:680px){
+  .nav-links{display:none}
+  .nav-links.open{display:flex;position:absolute;top:72px;left:0;right:0;flex-direction:column;background:rgba(5,8,10,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);padding:14px;gap:4px}
+  .nav-links.open a{padding:13px 16px}
+  .nav-toggle{display:flex}
+  .nav-cta .btn span{display:none}
+  .features,.tools-grid{grid-template-columns:1fr}
+  .flow-arrow{transform:rotate(90deg)}
+  section{padding:64px 0}
+  .hero{padding:48px 0 40px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;scroll-behavior:auto!important;transition:none!important}
+  .reveal{opacity:1;transform:none}
+}
+</style>
+<noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
+</head>
+<body>
+
+<header id="top">
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="Bitkub MCP Server home">
+      <svg class="logo" viewBox="0 0 32 32" aria-hidden="true" fill="none">
+        <rect width="32" height="32" rx="8" fill="#0d141a" stroke="#1d2832"/>
+        <g stroke="#18e08e" stroke-width="2.4" stroke-linecap="round"><line x1="9" y1="7" x2="9" y2="25"/><line x1="16" y1="4" x2="16" y2="28"/><line x1="23" y1="10" x2="23" y2="22"/></g>
+        <rect x="6.5" y="12" width="5" height="9" rx="1.5" fill="#18e08e"/>
+        <rect x="13.5" y="9" width="5" height="13" rx="1.5" fill="#56f0b0"/>
+        <rect x="20.5" y="14" width="5" height="5" rx="1.5" fill="#18e08e"/>
+      </svg>
+      <span>Bitkub MCP<small>gokub-mcp · go</small></span>
+    </a>
+    <nav class="nav-links" id="navlinks" aria-label="Primary">
+      <a href="#features">Features</a>
+      <a href="#flow">Workflow</a>
+      <a href="#tools">Tools</a>
+      <a href="#playbook">Playbook</a>
+      <a href="#install">Install</a>
+    </nav>
+    <div class="nav-cta">
+      <a class="btn btn-ghost btn-sm" href="https://github.com/dvgamerr-app/gokub-mcp" target="_blank" rel="noopener" aria-label="View on GitHub">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.27 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.33 4.81-4.56 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
+        <span>GitHub</span>
+      </a>
+      <button class="nav-toggle" id="navtoggle" aria-label="Toggle menu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="hero">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow"><span class="dot"></span>Model Context Protocol · Go 1.25</span>
+        <h1>Let your AI copilot <span class="grad">trade Bitkub</span> — with guardrails.</h1>
+        <p class="lede">An MCP server that wires <b>Claude</b> &amp; <b>Codex</b> straight into the Bitkub exchange. <b>39 tools</b> for market data, indicators, risk sizing, and live orders — driven by a long-only swing-trading playbook that <b>refuses any trade over your risk limit</b>.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#install">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4"/><path d="M5 21h14"/></svg>
+            Get started
+          </a>
+          <a class="btn btn-ghost" href="#tools">Explore the 39 tools</a>
+        </div>
+        <div class="hero-meta">
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 12 2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>Long-only · ≤2% risk/trade</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/></svg>Claude Code · Codex · Desktop</span>
+          <span class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 17V7l8-4 8 4v10l-8 4z"/></svg>MIT licensed</span>
+        </div>
+      </div>
+
+      <div class="terminal reveal">
+        <div class="term-bar">
+          <span class="term-dot" style="background:#ff5f57"></span>
+          <span class="term-dot" style="background:#febc2e"></span>
+          <span class="term-dot" style="background:#28c840"></span>
+          <span class="t-title">~/gokub-mcp — claude</span>
+        </div>
+        <div class="term-body">
+<span class="ln"><span class="c-cmt"># 1 · install the server</span></span>
+<span class="ln"><span class="c-prompt">$</span> <span class="c-cmd">go install github.com/dvgamerr-app/gokub-mcp@latest</span></span>
+<span class="ln"></span>
+<span class="ln"><span class="c-cmt"># 2 · register it with your AI client</span></span>
+<span class="ln"><span class="c-prompt">$</span> <span class="c-cmd">claude mcp add bitkub</span> <span class="c-flag">\</span></span>
+<span class="ln">    <span class="c-flag">-e</span> BTK_APIKEY=••••  <span class="c-flag">-e</span> BTK_SECRET=••••  <span class="c-flag">--</span> gokub-mcp</span>
+<span class="ln"></span>
+<span class="ln"><span class="c-ok">✓</span> bitkub connected · <span class="c-ok">39 tools</span> · 2 prompts · 2 resources</span>
+<span class="ln"><span class="c-prompt">›</span> <span class="c-cmd">"screen BTC and size a 1% swing entry"</span><span class="term-cursor"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="stats reveal">
+        <div class="stat"><div class="n">39<span class="u"> tools</span></div><div class="l">screen → place → log</div></div>
+        <div class="stat"><div class="n">9<span class="u"> groups</span></div><div class="l">data · risk · orders</div></div>
+        <div class="stat"><div class="n">≤2<span class="u">%</span></div><div class="l">risk per trade, enforced</div></div>
+        <div class="stat"><div class="n">100<span class="u">%</span></div><div class="l">single Go binary</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow"><span class="dot"></span>Why gokub-mcp</span>
+        <h2>The tools are the hands. The playbook is the brain.</h2>
+        <p>Everything an AI agent needs to run a disciplined long-only swing strategy on Bitkub — without ever bypassing your risk controls.</p>
+      </div>
+      <div class="features">
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-6"/></svg></div>
+          <h3>Live market data</h3>
+          <p>Tickers, order-book depth, spread, liquidity, screener, and historical candles — all public endpoints work without API keys.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5"/><path d="M4 15c4 0 4-8 8-8s4 8 8 8"/></svg></div>
+          <h3>Real indicators</h3>
+          <p>EMA, RSI, ATR, ROC, CAPM, market-regime and relative-strength checks — computed server-side, not hallucinated.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3 7.5 8 9 5-1.5 8-4.5 8-9V7z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>Risk-first sizing</h3>
+          <p>Position size is derived from your stop and account risk. A <b>validate gate</b> blocks any setup that breaks the rules.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M8 4v16"/></svg></div>
+          <h3>Live order management</h3>
+          <p>Place limit &amp; stop-limit orders, cancel, and poll status. Fee-aware math and exchange-rounding built in.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+          <h3>Client-side stops</h3>
+          <p>Bitkub has no native stop/OCO — so a client-side stop worker watches price and triggers your exit for you.</p>
+        </div>
+        <div class="card reveal">
+          <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v4H4zM4 12h16v8H4z"/><path d="M8 16h4"/></svg></div>
+          <h3>Trade journal</h3>
+          <p>Every entry and exit is logged to a flat-file journal, with expectancy and performance you can review any time.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLOW -->
+  <section id="flow" class="flow-sec">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow"><span class="dot"></span>The playbook flow</span>
+        <h2>One disciplined path from idea to logged trade</h2>
+        <p>The <code style="font-family:var(--mono);color:var(--brand-2)">bitkub-trade</code> skill walks the agent through every step — and the validate gate is non-negotiable.</p>
+      </div>
+      <div class="flow reveal">
+        <div class="flow-step"><div class="step-n">01</div><div class="step-t">Screen</div><div class="step-d">scan the market</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step"><div class="step-n">02</div><div class="step-t">Regime</div><div class="step-d">trend &amp; strength</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step"><div class="step-n">03</div><div class="step-t">Signal</div><div class="step-d">breakout / pullback</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step"><div class="step-n">04</div><div class="step-t">Size</div><div class="step-d">risk-based qty</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step" style="border-color:rgba(24,224,142,.4);background:rgba(24,224,142,.06)"><div class="step-n" style="color:var(--brand-2)">05</div><div class="step-t">Validate</div><div class="step-d">hard gate ✋</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step"><div class="step-n">06</div><div class="step-t">Place</div><div class="step-d">round &amp; order</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step"><div class="step-n">07</div><div class="step-t">Manage</div><div class="step-d">trail &amp; exit</div></div>
+        <div class="flow-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></div>
+        <div class="flow-step"><div class="step-n">08</div><div class="step-t">Log</div><div class="step-d">journal &amp; review</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PLAYBOOK / DUO -->
+  <section id="playbook">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow"><span class="dot"></span>bitkub-trade plugin</span>
+        <h2>Tools plus a brain that won&rsquo;t blow up your account</h2>
+        <p>Install the playbook as a plugin in Claude Code or Codex. It turns 39 raw tools into a strategy with hard limits baked in.</p>
+      </div>
+      <div class="duo">
+        <div class="card reveal">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" style="width:24px;height:24px"><path d="M9 11V6a2 2 0 1 1 4 0v5m0-3a2 2 0 1 1 4 0v3m0-1a2 2 0 1 1 4 0v4a7 7 0 0 1-7 7h-2a7 7 0 0 1-6-3l-3-5a2 2 0 0 1 3-2l1.5 1.5"/></svg> The hands — MCP tools</h3>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg><span><b>Market &amp; data</b> — ticker, depth, screener, candles, spread &amp; liquidity.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg><span><b>Indicators</b> — EMA, RSI, ATR, ROC, CAPM, regime, relative strength.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg><span><b>Orders &amp; wallet</b> — place, cancel, status, balances, open orders.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg><span><b>Journal</b> — log entries/exits, expectancy, trade history.</span></li>
+          </ul>
+        </div>
+        <div class="card brain reveal">
+          <h3><svg viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" style="width:24px;height:24px"><path d="M12 3a4 4 0 0 0-4 4 4 4 0 0 0-2 7 3 3 0 0 0 3 4 3 3 0 0 0 6 0 3 3 0 0 0 3-4 4 4 0 0 0-2-7 4 4 0 0 0-4-4Z"/><path d="M12 7v12"/></svg> The brain — guardrails</h3>
+          <ul>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3 7.5 8 9 5-1.5 8-4.5 8-9V7z"/></svg><span><b>≤2% risk per trade</b> — position size capped to your account risk.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3 7.5 8 9 5-1.5 8-4.5 8-9V7z"/></svg><span><b>Long-only</b> — no shorting, no leverage, no surprises.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3 7.5 8 9 5-1.5 8-4.5 8-9V7z"/></svg><span><b>No entry unless <code style="font-family:var(--mono);color:var(--brand-2)">can_trade=true</code></b> from the validate gate.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 7v5c0 4.5 3 7.5 8 9 5-1.5 8-4.5 8-9V7z"/></svg><span><b>Client-side stop · TP ≥ 2R</b> — protected exits and a real reward target.</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TOOLS -->
+  <section id="tools">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow"><span class="dot"></span>39 tools · 9 groups</span>
+        <h2>A complete swing-trading toolkit</h2>
+        <p>From screening the market down to logging your expectancy — every step has a dedicated, tested tool.</p>
+      </div>
+      <div class="tools-grid">
+        <div class="tool-cat reveal"><div class="ch"><h3>Foundation</h3><span class="cnt">7</span></div><div class="tlist"><code>get_wallet_balance</code><code>get_ticker</code><code>get_market_depth</code><code>get_my_open_orders</code><code>get_symbols</code><code>get_symbol_rules</code><code>get_fee_schedule</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Market &amp; Liquidity</h3><span class="cnt">5</span></div><div class="tlist"><code>calculate_spread</code><code>calculate_liquidity_depth</code><code>get_market_screener</code><code>get_historical_candles</code><code>extract_close_prices</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Indicators</h3><span class="cnt">6</span></div><div class="tlist"><code>calculate_ema</code><code>calculate_roc</code><code>calculate_atr</code><code>calculate_rsi</code><code>check_market_regime</code><code>calculate_capm</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Entry Signals</h3><span class="cnt">3</span></div><div class="tlist"><code>detect_breakout_signal</code><code>detect_pullback_signal</code><code>calculate_relative_strength_rank</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Position &amp; Risk</h3><span class="cnt">3</span></div><div class="tlist"><code>calculate_position_size</code><code>validate_trade_setup</code><code>round_to_exchange_rules</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Order Management</h3><span class="cnt">4</span></div><div class="tlist"><code>place_limit_order</code><code>place_stop_limit_order</code><code>cancel_order</code><code>get_order_status</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Trade Management</h3><span class="cnt">4</span></div><div class="tlist"><code>check_trade_pnl</code><code>calculate_trailing_stop</code><code>check_exit_signals</code><code>client_side_stop_worker</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Logging &amp; Performance</h3><span class="cnt">4</span></div><div class="tlist"><code>log_trade_entry</code><code>log_trade_exit</code><code>calculate_expectancy</code><code>get_trade_history</code></div></div>
+        <div class="tool-cat reveal"><div class="ch"><h3>Helpers</h3><span class="cnt">3</span></div><div class="tlist"><code>get_market_overview</code><code>simulate_trade</code><code>pnl_with_fees</code></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- INSTALL -->
+  <section id="install">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow"><span class="dot"></span>Quick start</span>
+        <h2>Connected in three steps</h2>
+        <p>Public market-data tools work with zero config. Add your Bitkub keys when you need wallet &amp; order tools.</p>
+      </div>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="num">1</div>
+          <div class="body">
+            <h3>Install the server</h3>
+            <p class="sd">A single Go binary — lands in <code style="font-family:var(--mono);color:var(--brand-2)">$(go env GOPATH)/bin</code>.</p>
+            <div class="code"><pre><span class="c-cmt"># requires Go 1.25+</span>
+go install github.com/dvgamerr-app/gokub-mcp@latest</pre><button class="copy" aria-label="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="num">2</div>
+          <div class="body">
+            <h3>Register it with your AI client</h3>
+            <p class="sd">Runs over stdio — no flags needed. Use <code style="font-family:var(--mono);color:var(--brand-2)">claude mcp add</code> or <code style="font-family:var(--mono);color:var(--brand-2)">codex mcp add</code>.</p>
+            <div class="code"><pre>claude mcp add bitkub <span class="c-flag">\</span>
+  <span class="c-flag">-e</span> BTK_APIKEY=your_api_key <span class="c-flag">\</span>
+  <span class="c-flag">-e</span> BTK_SECRET=your_secret_key <span class="c-flag">\</span>
+  <span class="c-flag">--</span> "$(go env GOPATH)/bin/gokub-mcp"</pre><button class="copy" aria-label="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="num">3</div>
+          <div class="body">
+            <h3>Install the trading playbook</h3>
+            <p class="sd">The repo doubles as a plugin marketplace — this adds the strategy &amp; guardrails.</p>
+            <div class="code"><pre><span class="c-cmt"># in Claude Code</span>
+/plugin marketplace add dvgamerr-app/gokub-mcp
+/plugin install bitkub-trade@gokub-mcp</pre><button class="copy" aria-label="Copy command"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section>
+    <div class="wrap">
+      <div class="cta-band reveal">
+        <span class="eyebrow"><span class="dot"></span>Open source · MIT</span>
+        <h2>Hand the charts to your agent.<br>Keep the risk rules to yourself.</h2>
+        <p>Star the repo, join the community, and ship your first risk-sized swing trade today.</p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="https://github.com/dvgamerr-app/gokub-mcp" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.48 2 2 6.58 2 12.25c0 4.53 2.87 8.37 6.84 9.73.5.1.68-.22.68-.49 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.37-3.37-1.37-.45-1.18-1.11-1.49-1.11-1.49-.91-.64.07-.62.07-.62 1 .07 1.53 1.06 1.53 1.06.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.63-1.36-2.22-.26-4.55-1.14-4.55-5.07 0-1.12.39-2.03 1.03-2.75-.1-.26-.45-1.3.1-2.7 0 0 .84-.27 2.75 1.05a9.36 9.36 0 0 1 5 0c1.91-1.32 2.75-1.05 2.75-1.05.55 1.4.2 2.44.1 2.7.64.72 1.03 1.63 1.03 2.75 0 3.94-2.33 4.81-4.56 5.06.36.32.68.94.68 1.9 0 1.37-.01 2.47-.01 2.81 0 .27.18.6.69.49A10.02 10.02 0 0 0 22 12.25C22 6.58 17.52 2 12 2Z"/></svg>
+            Star on GitHub
+          </a>
+          <a class="btn btn-ghost" href="https://discord.gg/QDccF497Mw" target="_blank" rel="noopener">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 5.3A18 18 0 0 0 15.6 4l-.2.4a14 14 0 0 1 4 2 16 16 0 0 0-14 0 14 14 0 0 1 4-2L9.3 4A18 18 0 0 0 5 5.3 19 19 0 0 0 2 18a17 17 0 0 0 5.2 2.6l.6-1a12 12 0 0 1-2-1l.5-.3a13 13 0 0 0 11.4 0l.5.3a12 12 0 0 1-2 1l.6 1A17 17 0 0 0 22 18a19 19 0 0 0-2-12.7ZM9 15c-.9 0-1.6-.9-1.6-1.9S8.1 11.1 9 11.1s1.6.9 1.6 1.9S9.9 15 9 15Zm6 0c-.9 0-1.6-.9-1.6-1.9s.7-1.9 1.6-1.9 1.6.9 1.6 1.9S15.9 15 15 15Z"/></svg>
+            Join Discord
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div>
+        <a class="brand" href="#top">
+          <svg class="logo" viewBox="0 0 32 32" aria-hidden="true" fill="none">
+            <rect width="32" height="32" rx="8" fill="#0d141a" stroke="#1d2832"/>
+            <g stroke="#18e08e" stroke-width="2.4" stroke-linecap="round"><line x1="9" y1="7" x2="9" y2="25"/><line x1="16" y1="4" x2="16" y2="28"/><line x1="23" y1="10" x2="23" y2="22"/></g>
+            <rect x="6.5" y="12" width="5" height="9" rx="1.5" fill="#18e08e"/>
+            <rect x="13.5" y="9" width="5" height="13" rx="1.5" fill="#56f0b0"/>
+            <rect x="20.5" y="14" width="5" height="5" rx="1.5" fill="#18e08e"/>
+          </svg>
+          <span>Bitkub MCP<small>gokub-mcp · go</small></span>
+        </a>
+        <p>An open-source Model Context Protocol server for the Bitkub exchange. Built in Go with mcp-go.</p>
+      </div>
+      <div class="foot-cols">
+        <div class="foot-col">
+          <h4>Product</h4>
+          <a href="#features">Features</a>
+          <a href="#flow">Workflow</a>
+          <a href="#tools">Tools</a>
+          <a href="#playbook">Playbook</a>
+          <a href="#install">Install</a>
+        </div>
+        <div class="foot-col">
+          <h4>Resources</h4>
+          <a href="https://github.com/dvgamerr-app/gokub-mcp" target="_blank" rel="noopener">GitHub repo</a>
+          <a href="https://github.com/dvgamerr-app/gokub-mcp/blob/main/README.md" target="_blank" rel="noopener">Documentation</a>
+          <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener">MCP spec</a>
+          <a href="https://github.com/dvgamerr-app/go-bitkub" target="_blank" rel="noopener">Go-Bitkub SDK</a>
+        </div>
+        <div class="foot-col">
+          <h4>Community</h4>
+          <a href="https://discord.gg/QDccF497Mw" target="_blank" rel="noopener">Discord</a>
+          <a href="https://github.com/dvgamerr-app/gokub-mcp/issues" target="_blank" rel="noopener">Report a bug</a>
+          <a href="https://github.com/dvgamerr-app/gokub-mcp/issues" target="_blank" rel="noopener">Request a feature</a>
+        </div>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© <span id="year">2026</span> dvgamerr-app · Released under the MIT License.</span>
+      <span>Not financial advice. Trade at your own risk.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var header=document.querySelector('header');
+  var onScroll=function(){header.classList.toggle('scrolled',window.scrollY>8)};
+  onScroll();addEventListener('scroll',onScroll,{passive:true});
+
+  var toggle=document.getElementById('navtoggle'),links=document.getElementById('navlinks');
+  toggle.addEventListener('click',function(){
+    var open=links.classList.toggle('open');
+    toggle.setAttribute('aria-expanded',open);
+  });
+  links.addEventListener('click',function(e){if(e.target.tagName==='A'){links.classList.remove('open');toggle.setAttribute('aria-expanded',false);}});
+
+  // copy buttons
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var code=btn.parentElement.querySelector('pre').innerText.replace(/^#.*$/gm,'').trim();
+      navigator.clipboard.writeText(code).then(function(){
+        btn.classList.add('copied');
+        btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12 4 4L19 6"/></svg>';
+        setTimeout(function(){
+          btn.classList.remove('copied');
+          btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+        },1600);
+      });
+    });
+  });
+
+  // reveal on scroll
+  if('IntersectionObserver' in window){
+    var io=new IntersectionObserver(function(es){
+      es.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}});
+    },{threshold:.12});
+    document.querySelectorAll('.reveal').forEach(function(el){io.observe(el)});
+  }else{
+    document.querySelectorAll('.reveal').forEach(function(el){el.classList.add('in')});
+  }
+
+  // active nav link via section observe
+  var navMap={};
+  document.querySelectorAll('.nav-links a').forEach(function(a){navMap[a.getAttribute('href').slice(1)]=a;});
+  if('IntersectionObserver' in window){
+    var so=new IntersectionObserver(function(es){
+      es.forEach(function(e){
+        var a=navMap[e.target.id];
+        if(a&&e.isIntersecting){
+          Object.values(navMap).forEach(function(x){x.classList.remove('active')});
+          a.classList.add('active');
+        }
+      });
+    },{rootMargin:'-45% 0px -50% 0px'});
+    ['features','flow','playbook','tools','install'].forEach(function(id){var el=document.getElementById(id);if(el)so.observe(el);});
+  }
+
+  document.getElementById('year').textContent=(new Date()).getFullYear();
+})();
+</script>
+</body>
+</html>
