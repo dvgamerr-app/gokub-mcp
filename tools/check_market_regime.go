@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"math"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/rs/zerolog/log"
@@ -12,10 +13,12 @@ import (
 
 func NewCheckMarketRegimeTool() mcp.Tool {
 	return mcp.NewTool("check_market_regime",
-		mcp.WithDescription(`Analyze market regime (trending vs ranging) using price volatility and trend strength indicators`),
+		mcp.WithDescription(`Analyze market regime from close prices or candles. Returns UPTREND, DOWNTREND, or SIDEWAYS with reasons and score.`),
 		mcp.WithArray("prices",
-			mcp.Required(),
-			mcp.Description("Array of price values (close prices) for market regime analysis"),
+			mcp.Description("Array of close prices for market regime analysis. Preferred input from get_historical_candles(..., format='close')."),
+		),
+		mcp.WithArray("candles",
+			mcp.Description("Array of OHLCV candle objects. If provided, close prices will be extracted automatically."),
 		),
 		mcp.WithNumber("lookback",
 			mcp.Description("Lookback period for analysis. Default: 20"),
@@ -30,14 +33,9 @@ func CheckMarketRegimeHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	pricesRaw, ok := args["prices"].([]any)
-	if !ok {
-		return utils.ErrorResult("prices must be an array")
-	}
-
-	prices, err := utils.ParseFloatArray(pricesRaw)
+	prices, err := parseRegimePrices(args)
 	if err != nil {
-		return utils.ErrorResult("prices must contain numbers only")
+		return utils.ErrorResult(err.Error())
 	}
 
 	lookback := utils.GetIntArg(args, "lookback", 20)
@@ -46,26 +44,31 @@ func CheckMarketRegimeHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	if len(prices) < lookback {
-		return utils.ErrorResult(fmt.Sprintf("not enough data: need at least %d prices", lookback))
+		return utils.ErrorResult(fmt.Sprintf("not enough data: need at least %d close prices or candles, then pass result.prices from get_historical_candles(..., format='close') or candles[] directly", lookback))
 	}
 
 	regime := analyzeMarketRegime(prices, lookback)
 
 	summary := fmt.Sprintf("Market Regime Analysis (%d-period lookback)\n", lookback)
-	summary += fmt.Sprintf("Regime: %s | Volatility: %.2f%% | Trend Strength: %.2f\n",
-		regime.Regime, regime.Volatility*100, regime.TrendStrength)
-	summary += fmt.Sprintf("ADX: %.2f | Recommendation: %s",
-		regime.ADX, regime.Recommendation)
+	summary += fmt.Sprintf("Regime: %s | Score: %.0f | Net Change: %.2f%%\n",
+		regime.Regime, regime.Score, regime.NetChangePercent)
+	summary += fmt.Sprintf("ADX: %.2f | Volatility: %.2f%% | Trend Strength: %.2f\n",
+		regime.ADX, regime.Volatility*100, regime.TrendStrength)
+	summary += fmt.Sprintf("Reasons: %s\nRecommendation: %s",
+		strings.Join(regime.Reasons, "; "), regime.Recommendation)
 
 	return utils.ArtifactsResult(summary, regime)
 }
 
 type MarketRegime struct {
-	Regime         string  `json:"regime"`
-	Volatility     float64 `json:"volatility"`
-	TrendStrength  float64 `json:"trend_strength"`
-	ADX            float64 `json:"adx"`
-	Recommendation string  `json:"recommendation"`
+	Regime           string   `json:"regime"`
+	Score            float64  `json:"score"`
+	Volatility       float64  `json:"volatility"`
+	TrendStrength    float64  `json:"trend_strength"`
+	ADX              float64  `json:"adx"`
+	NetChangePercent float64  `json:"net_change_percent"`
+	Reasons          []string `json:"reasons"`
+	Recommendation   string   `json:"recommendation"`
 }
 
 func analyzeMarketRegime(prices []float64, lookback int) *MarketRegime {
@@ -74,28 +77,108 @@ func analyzeMarketRegime(prices []float64, lookback int) *MarketRegime {
 	volatility := calculateVolatility(recentPrices)
 	trendStrength := calculateTrendStrength(recentPrices)
 	adx := calculateADX(prices, 14)
+	netChangePercent := ((recentPrices[len(recentPrices)-1] - recentPrices[0]) / recentPrices[0]) * 100
 
-	regime := "ranging"
-	recommendation := "Use mean-reversion strategies"
+	regime := "SIDEWAYS"
+	score := 45.0
+	reasons := []string{
+		fmt.Sprintf("net change over lookback is %.2f%%", utils.Round(netChangePercent, 2)),
+	}
+	recommendation := "Stand aside for long-only trend trades"
 
-	if adx > 25 && trendStrength > 0.6 {
-		regime = "strong_trending"
-		recommendation = "Use trend-following strategies with momentum"
-	} else if adx > 20 || trendStrength > 0.5 {
-		regime = "trending"
-		recommendation = "Use trend-following strategies"
-	} else if volatility > 0.02 {
-		regime = "volatile_ranging"
-		recommendation = "Use caution, high volatility in ranging market"
+	switch {
+	case netChangePercent >= 2 && (adx >= 20 || trendStrength >= 0.55):
+		regime = "UPTREND"
+		score = marketRegimeScore(netChangePercent, trendStrength, adx)
+		reasons = append(reasons,
+			fmt.Sprintf("close is rising with trend strength %.2f", utils.Round(trendStrength, 2)),
+			fmt.Sprintf("ADX %.2f confirms directional strength", utils.Round(adx, 2)),
+		)
+		recommendation = "Long-only trend-following setups are allowed"
+	case netChangePercent <= -2 && (adx >= 20 || trendStrength >= 0.55):
+		regime = "DOWNTREND"
+		score = marketRegimeScore(math.Abs(netChangePercent), trendStrength, adx)
+		reasons = append(reasons,
+			fmt.Sprintf("close is falling with trend strength %.2f", utils.Round(trendStrength, 2)),
+			fmt.Sprintf("ADX %.2f confirms directional weakness", utils.Round(adx, 2)),
+		)
+		recommendation = "Avoid long-only setups until trend improves"
+	default:
+		if math.Abs(netChangePercent) < 2 {
+			reasons = append(reasons, "price stayed inside a low-drift range")
+		}
+		if adx < 20 {
+			reasons = append(reasons, fmt.Sprintf("ADX %.2f is below trend threshold", utils.Round(adx, 2)))
+		}
+		if volatility > 0.02 {
+			reasons = append(reasons, fmt.Sprintf("volatility is elevated at %.2f%%", utils.Round(volatility*100, 2)))
+		}
 	}
 
 	return &MarketRegime{
-		Regime:         regime,
-		Volatility:     utils.Round(volatility, 4),
-		TrendStrength:  utils.Round(trendStrength, 2),
-		ADX:            utils.Round(adx, 2),
-		Recommendation: recommendation,
+		Regime:           regime,
+		Score:            utils.Round(score, 0),
+		Volatility:       utils.Round(volatility, 4),
+		TrendStrength:    utils.Round(trendStrength, 2),
+		ADX:              utils.Round(adx, 2),
+		NetChangePercent: utils.Round(netChangePercent, 2),
+		Reasons:          reasons,
+		Recommendation:   recommendation,
 	}
+}
+
+func parseRegimePrices(args map[string]any) ([]float64, error) {
+	if pricesRaw, ok := args["prices"].([]any); ok {
+		prices, err := utils.ParseFloatArray(pricesRaw)
+		if err != nil {
+			return nil, fmt.Errorf("prices must contain numbers only")
+		}
+		return prices, nil
+	}
+
+	if candlesRaw, ok := args["candles"].([]any); ok {
+		prices := make([]float64, 0, len(candlesRaw))
+		for _, candle := range candlesRaw {
+			candleMap, ok := candle.(map[string]any)
+			if !ok {
+				continue
+			}
+
+			switch close := candleMap["close"].(type) {
+			case float64:
+				if close > 0 {
+					prices = append(prices, close)
+				}
+			case int:
+				if close > 0 {
+					prices = append(prices, float64(close))
+				}
+			}
+		}
+
+		if len(prices) == 0 {
+			return nil, fmt.Errorf("candles must include a valid close field")
+		}
+
+		return prices, nil
+	}
+
+	if _, hasSymbol := args["symbol"]; hasSymbol {
+		return nil, fmt.Errorf("symbol alone is not enough for check_market_regime; call get_historical_candles first, then pass result.prices or candles[]")
+	}
+
+	return nil, fmt.Errorf("missing price data: pass prices[] from get_historical_candles(..., format='close') or candles[] from get_historical_candles(...)")
+}
+
+func marketRegimeScore(netChangePercent, trendStrength, adx float64) float64 {
+	score := 50.0
+	score += math.Min(math.Abs(netChangePercent)*2, 20)
+	score += math.Min(trendStrength*20, 20)
+	score += math.Min(adx/2, 20)
+	if score > 100 {
+		return 100
+	}
+	return score
 }
 
 func calculateVolatility(prices []float64) float64 {

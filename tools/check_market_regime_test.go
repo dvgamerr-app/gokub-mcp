@@ -8,10 +8,10 @@ import (
 )
 
 // TestCheckMarketRegimeDetection verifies regime output for clear trend vs ranging (ASSIGNMENT.md §3, tool 15).
-// Rising data (100→129): all up-moves → trendStrength=1.0, ADX≈100 → "strong_trending"
-// Flat data (all 100): no moves → trendStrength=0, ADX=0, volatility=0 → "ranging"
+// Rising data (100→129): all up-moves → trendStrength=1.0, ADX≈100 → "UPTREND"
+// Flat data (all 100): no moves → trendStrength=0, ADX=0, volatility=0 → "SIDEWAYS"
 func TestCheckMarketRegimeDetection(t *testing.T) {
-	t.Run("strong uptrend → strong_trending", func(t *testing.T) {
+	t.Run("strong uptrend → UPTREND", func(t *testing.T) {
 		rising := make([]any, 30)
 		for i := range rising {
 			rising[i] = 100.0 + float64(i)
@@ -27,12 +27,12 @@ func TestCheckMarketRegimeDetection(t *testing.T) {
 		if !ok {
 			t.Fatal("StructuredContent is not *MarketRegime")
 		}
-		if out.Regime != "strong_trending" {
-			t.Errorf("regime: want strong_trending (ADX≈100, trendStrength=1.0), got %s", out.Regime)
+		if out.Regime != "UPTREND" {
+			t.Errorf("regime: want UPTREND (ADX≈100, trendStrength=1.0), got %s", out.Regime)
 		}
 	})
 
-	t.Run("flat data → ranging", func(t *testing.T) {
+	t.Run("flat data → SIDEWAYS", func(t *testing.T) {
 		flat := make([]any, 30)
 		for i := range flat {
 			flat[i] = 100.0
@@ -48,8 +48,31 @@ func TestCheckMarketRegimeDetection(t *testing.T) {
 		if !ok {
 			t.Fatal("StructuredContent is not *MarketRegime")
 		}
-		if out.Regime != "ranging" {
-			t.Errorf("regime: want ranging (no trend, no volatility), got %s", out.Regime)
+		if out.Regime != "SIDEWAYS" {
+			t.Errorf("regime: want SIDEWAYS (no trend, no volatility), got %s", out.Regime)
+		}
+	})
+
+	t.Run("candles input → DOWNTREND", func(t *testing.T) {
+		candles := make([]any, 30)
+		for i := range candles {
+			candles[i] = map[string]any{
+				"close": 130.0 - float64(i),
+			}
+		}
+		req := mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: map[string]any{
+			"lookback": float64(20), "candles": candles,
+		}}}
+		result, err := CheckMarketRegimeHandler(context.Background(), req)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		out, ok := result.StructuredContent.(*MarketRegime)
+		if !ok {
+			t.Fatal("StructuredContent is not *MarketRegime")
+		}
+		if out.Regime != "DOWNTREND" {
+			t.Errorf("regime: want DOWNTREND, got %s", out.Regime)
 		}
 	})
 }
@@ -79,6 +102,13 @@ func TestCheckMarketRegimeHandler(t *testing.T) {
 			args: map[string]any{
 				"lookback": float64(20),
 				"prices":   []any{100.0, 101.0},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Symbol only",
+			args: map[string]any{
+				"symbol": "btc_thb",
 			},
 			wantErr: true,
 		},
