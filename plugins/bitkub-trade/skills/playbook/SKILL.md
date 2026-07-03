@@ -4,7 +4,7 @@ description: >-
   Playbook for swing-trading the long side on Bitkub (THB pairs) using the gokub-mcp tools. Use when asked to find a trade, screen coins, evaluate an entry, size a position, place/manage an order, or review trading performance on Bitkub. Encodes the risk rules, the screen→regime→signal→size→validate→place→manage→log flow, and Bitkub-specific constraints (no native stop/OCO).
 license: MIT
 author: Kananek T.
-version: 0.4
+version: 0.5
 category: trading
 ---
 
@@ -71,14 +71,24 @@ Only after all urgent exits are handled, proceed to step 1 for new entries.
    symbol unless the user explicitly names one.
 2. **Regime filter** — `get_historical_candles` (1D) → `check_market_regime(prices)`.
    Trade only if UPTREND. (Confirm with `calculate_ema`: close > EMA200, EMA50 > EMA200.)
-3. **Relative strength** — `calculate_relative_strength_rank(symbols[], benchmark=btc_thb)`.
-   Keep the top names.
+3. **Relative strength** — `calculate_relative_strength_rank(symbols={sym: prices, ...},
+   benchmark=btc_thb)`. `symbols` is an **object** of `symbol: prices[]` (1D close prices
+   from `get_historical_candles(..., format="close")` per symbol), not a plain array of
+   symbol names. Keep the top names (`top3`).
 4. **Volatility fit** — `calculate_atr(candles)` → keep ATR% in a sane zone (~2–6%/day).
 5. **Entry signal** (entry timeframe) — `detect_breakout_signal` (close above 20-bar high
-   + volume ≥1.5×) or `detect_pullback_signal` (pullback to EMA20 + RSI bounce 40–50).
-6. **Size** — `get_wallet_balance` → `calculate_position_size(balance, risk_percent=2,
-   entry, stop)`. Stop from signal's `suggested_stop` (swing low or 1.5×ATR).
-7. **Gate** — `validate_trade_setup` with the metrics above. Stop here if `can_trade=false`.
+   + volume ≥1.5×) or `detect_pullback_signal` (pullback to EMA20 + RSI bounce 40–50; also
+   reports `volume_ratio` — use it for step 7's `volume_ok`, pullback has no built-in
+   volume gate the way breakout does).
+6. **Size** — `get_wallet_balance` (use `available`, not `total_thb` — that includes funds
+   reserved in open orders) → `calculate_position_size(balance, risk_percent=2, entry,
+   stop, maker_fee, taker_fee)`. Stop from signal's `suggested_stop` (swing low or
+   1.5×ATR). Fees from `get_fee_schedule` chain straight through: its `maker_fee`/
+   `taker_fee` are already percentage points (e.g. `0.25` = 0.25%), same unit
+   `calculate_position_size` expects.
+7. **Gate** — `validate_trade_setup` with the metrics above (its input is
+   `position_value_thb`, matching `calculate_position_size`'s output field of the same
+   name — not `position_value`). Stop here if `can_trade=false`.
 8. **Round** — `get_symbol_rules` → `round_to_exchange_rules(symbol, price, qty)`. Reject
    if `valid=false` (below min notional).
 9. **(Optional) sanity** — `simulate_trade` to confirm R:R ≥ 2 before committing.
