@@ -19,6 +19,9 @@ type PullbackSignal struct {
 	HasReversalBar   bool    `json:"has_reversal_bar"`
 	ReversalBarClose float64 `json:"reversal_bar_close"`
 	ReversalBarHigh  float64 `json:"reversal_bar_high"`
+	CurrentVolume    float64 `json:"current_volume"`
+	AvgVolume20      float64 `json:"avg_volume_20"`
+	VolumeRatio      float64 `json:"volume_ratio"`
 	SuggestedEntry   float64 `json:"suggested_entry"`
 	SuggestedStop    float64 `json:"suggested_stop"`
 	SwingLow         float64 `json:"swing_low"`
@@ -65,9 +68,11 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 	parsed := parseOHLCV(candlesRaw)
 	candles := make([]OHLCData, len(parsed))
 	closes := make([]float64, len(parsed))
+	volumes := make([]float64, len(parsed))
 	for i, c := range parsed {
 		candles[i] = OHLCData{High: c.High, Low: c.Low, Close: c.Close}
 		closes[i] = c.Close
+		volumes[i] = c.Volume
 	}
 
 	emaPeriod := utils.GetIntArg(args, "ema_period", 20)
@@ -110,6 +115,20 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 		}
 	}
 
+	currentVolume := volumes[len(volumes)-1]
+	volLookback := min(20, len(volumes)-1)
+	avgVolume := 0.0
+	for i := len(volumes) - 1 - volLookback; i < len(volumes)-1; i++ {
+		avgVolume += volumes[i]
+	}
+	if volLookback > 0 {
+		avgVolume /= float64(volLookback)
+	}
+	volumeRatio := 0.0
+	if avgVolume > 0 {
+		volumeRatio = currentVolume / avgVolume
+	}
+
 	signal := "NO_SIGNAL"
 	if nearEMA && rsiInBounceZone && hasReversalBar {
 		signal = "PULLBACK_BUY"
@@ -127,6 +146,9 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 		HasReversalBar:   hasReversalBar,
 		ReversalBarClose: utils.Round(reversalClose, 2),
 		ReversalBarHigh:  utils.Round(reversalHigh, 2),
+		CurrentVolume:    utils.Round(currentVolume, 2),
+		AvgVolume20:      utils.Round(avgVolume, 2),
+		VolumeRatio:      utils.Round(volumeRatio, 2),
 		SuggestedEntry:   utils.Round(suggestedEntry, 2),
 		SuggestedStop:    utils.Round(suggestedStop, 2),
 		SwingLow:         utils.Round(swingLow, 2),
@@ -137,6 +159,7 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 	summary += fmt.Sprintf("Current Price: %.2f | EMA%d: %.2f (%.2f%% from EMA)\n", result.CurrentPrice, emaPeriod, result.EMA20, result.PriceToEMA)
 	summary += fmt.Sprintf("RSI: %.2f (Bounce Zone: %.0f-%.0f)\n", result.RSI, rsiMin, rsiMax)
 	summary += fmt.Sprintf("Reversal Bar: %v\n", result.HasReversalBar)
+	summary += fmt.Sprintf("Volume Ratio: %.2fx (Current: %.2f | Avg20: %.2f)\n", result.VolumeRatio, result.CurrentVolume, result.AvgVolume20)
 
 	if signal == "PULLBACK_BUY" {
 		summary += "\n✅ PULLBACK CONFIRMED\n"

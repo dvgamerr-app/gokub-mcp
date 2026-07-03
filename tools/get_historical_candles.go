@@ -21,6 +21,11 @@ type Candle struct {
 	Volume    float64 `json:"volume"`
 }
 
+// minIndicatorCandles covers the largest downstream requirement (calculate_ema
+// period=200 for the EMA200 regime check); ATR/RSI/ROC/breakout/pullback all
+// need far fewer, so this floor keeps every chained tool call fed.
+const minIndicatorCandles = 220
+
 var validResolutions map[int]string = map[int]string{
 	1:    "1",
 	5:    "5",
@@ -41,7 +46,7 @@ func NewHistoricalCandlesTool() mcp.Tool {
 			mcp.Description("Timeframe resolution in minutes (1, 5, 15, 60, 240, 1440). Default: 60"),
 		),
 		mcp.WithNumber("limit",
-			mcp.Description("Number of candles to retrieve (1-1000). Default: 100"),
+			mcp.Description("Number of candles to retrieve (1-1000). Default: 220. Bumped up to 220 automatically so ATR/RSI/EMA200/breakout/pullback have enough candles."),
 		),
 		mcp.WithString("format",
 			mcp.Description("Output format: 'ohlcv' (default), 'close' (close prices only), 'csv' (CSV format)"),
@@ -71,7 +76,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	resolution := utils.GetIntArg(args, "resolution", 60)
-	limit := utils.GetIntArg(args, "limit", 100)
+	limit := utils.GetIntArg(args, "limit", minIndicatorCandles)
 	format := strings.ToLower(utils.GetStringArg(args, "format"))
 	if format == "" {
 		format = "ohlcv"
@@ -79,6 +84,9 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 
 	if limit < 1 || limit > 1000 {
 		return utils.ErrorResult("limit must be between 1 and 1000")
+	}
+	if limit < minIndicatorCandles {
+		limit = minIndicatorCandles
 	}
 
 	if format != "ohlcv" && format != "close" && format != "csv" {

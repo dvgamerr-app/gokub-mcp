@@ -27,7 +27,8 @@ func NewLogTradeEntryTool() mcp.Tool {
 			mcp.Description("Position quantity (coins)"),
 		),
 		mcp.WithNumber("stop",
-			mcp.Description("Stop price"),
+			mcp.Required(),
+			mcp.Description("Stop price. Required — every trade must have a stop (client_side_stop_worker has no resting exchange stop to fall back on), and an unset stop silently folds a 0R trade into calculate_expectancy's averages."),
 		),
 		mcp.WithNumber("tp_2r",
 			mcp.Description("Take-profit (2R) price"),
@@ -56,8 +57,12 @@ func LogTradeEntryHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 	symbol := strings.ToLower(utils.GetStringArg(args, "symbol"))
 	entryPrice := utils.GetFloat64Arg(args, "entry_price")
 	qty := utils.GetFloat64Arg(args, "qty")
+	stop := utils.GetFloat64Arg(args, "stop")
 	if symbol == "" || entryPrice <= 0 || qty <= 0 {
 		return utils.ErrorResult("symbol, positive entry_price and qty are required")
+	}
+	if stop <= 0 || stop >= entryPrice {
+		return utils.ErrorResult("stop must be positive and below entry_price (long position)")
 	}
 
 	entryDate := utils.GetStringArg(args, "entry_date")
@@ -72,7 +77,7 @@ func LogTradeEntryHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 		EntryDate:  entryDate,
 		EntryPrice: entryPrice,
 		Qty:        qty,
-		Stop:       utils.GetFloat64Arg(args, "stop"),
+		Stop:       stop,
 		TP2R:       utils.GetFloat64Arg(args, "tp_2r"),
 		Reason:     utils.GetStringArg(args, "reason"),
 		Status:     "open",

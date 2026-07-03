@@ -22,7 +22,7 @@ type ValidateSetupInput struct {
 	ATRMax        float64 `json:"atr_max"`
 	HasSignal     bool    `json:"has_signal"`
 	VolumeOK      bool    `json:"volume_ok"`
-	PositionValue float64 `json:"position_value"`
+	PositionValue float64 `json:"position_value_thb"`
 	Balance       float64 `json:"balance"`
 }
 
@@ -64,9 +64,9 @@ func NewValidateTradeSetupTool() mcp.Tool {
 			mcp.Required(),
 			mcp.Description("Is volume confirming the signal (e.g. >=1.5x average)?"),
 		),
-		mcp.WithNumber("position_value",
+		mcp.WithNumber("position_value_thb",
 			mcp.Required(),
-			mcp.Description("Position value in THB from calculate_position_size"),
+			mcp.Description("position_value_thb from calculate_position_size"),
 		),
 		mcp.WithNumber("balance",
 			mcp.Required(),
@@ -122,7 +122,7 @@ func ValidateTradeSetupHandler(ctx context.Context, request mcp.CallToolRequest)
 		ATRMax:        utils.GetFloat64Arg(args, "atr_max", 6),
 		HasSignal:     utils.GetBoolArg(args, "has_signal"),
 		VolumeOK:      utils.GetBoolArg(args, "volume_ok"),
-		PositionValue: utils.GetFloat64Arg(args, "position_value"),
+		PositionValue: utils.GetFloat64Arg(args, "position_value_thb"),
 		Balance:       balance,
 	}
 
