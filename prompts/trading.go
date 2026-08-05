@@ -3,33 +3,32 @@ package prompts
 import (
 	"context"
 	"fmt"
-	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"strings"
 
 	"github.com/dvgamerr-app/go-bitkub/market"
-	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog/log"
 )
 
-func NewTradingStrategyPrompt() mcp.Prompt {
-	return mcp.NewPrompt("trading_strategy")
+func NewTradingStrategyPrompt() *mcp.Prompt {
+	return &mcp.Prompt{Name: "trading_strategy"}
 }
 
-func TradingStrategyHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	args, _ := utils.ValidateArgs(request.Params.Arguments)
+func TradingStrategyHandler(ctx context.Context, request *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	args := request.Params.Arguments
 
 	symbol := "btc_thb"
-	if val, ok := args["symbol"].(string); ok {
+	if val, ok := args["symbol"]; ok {
 		symbol = strings.ToLower(val)
 	}
 
 	riskTolerance := "medium"
-	if val, ok := args["risk_tolerance"].(string); ok {
+	if val, ok := args["risk_tolerance"]; ok {
 		riskTolerance = val
 	}
 
 	timeframe := "day"
-	if val, ok := args["timeframe"].(string); ok {
+	if val, ok := args["timeframe"]; ok {
 		timeframe = val
 	}
 
@@ -81,11 +80,10 @@ Format your response in a clear, actionable manner suitable for execution.`,
 		Msg("Generated trading strategy prompt")
 
 	return &mcp.GetPromptResult{
-		Messages: []mcp.PromptMessage{
+		Messages: []*mcp.PromptMessage{
 			{
 				Role: "user",
-				Content: mcp.TextContent{
-					Type: "text",
+				Content: &mcp.TextContent{
 					Text: promptText,
 				},
 			},
@@ -93,20 +91,20 @@ Format your response in a clear, actionable manner suitable for execution.`,
 	}, nil
 }
 
-func NewMarketAnalysisPrompt() mcp.Prompt {
-	return mcp.NewPrompt("market_analysis")
+func NewMarketAnalysisPrompt() *mcp.Prompt {
+	return &mcp.Prompt{Name: "market_analysis"}
 }
 
-func MarketAnalysisHandler(ctx context.Context, request mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-	args, _ := utils.ValidateArgs(request.Params.Arguments)
+func MarketAnalysisHandler(ctx context.Context, request *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+	args := request.Params.Arguments
 
 	symbolsStr := "btc_thb,eth_thb"
-	if val, ok := args["symbols"].(string); ok {
+	if val, ok := args["symbols"]; ok {
 		symbolsStr = val
 	}
 
 	analysisType := "comprehensive"
-	if val, ok := args["analysis_type"].(string); ok {
+	if val, ok := args["analysis_type"]; ok {
 		analysisType = val
 	}
 
@@ -156,11 +154,10 @@ Provide your analysis in a structured, professional format.`,
 		Msg("Generated market analysis prompt")
 
 	return &mcp.GetPromptResult{
-		Messages: []mcp.PromptMessage{
+		Messages: []*mcp.PromptMessage{
 			{
 				Role: "user",
-				Content: mcp.TextContent{
-					Type: "text",
+				Content: &mcp.TextContent{
 					Text: promptText,
 				},
 			},

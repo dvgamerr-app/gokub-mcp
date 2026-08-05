@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // TestCheckMarketRegimeDetection verifies regime output for clear trend vs ranging (ASSIGNMENT.md §3, tool 15).

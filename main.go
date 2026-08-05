@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"flag"
+	"net/http"
+	"os"
+
+	"github.com/dvgamerr-app/go-bitkub/bitkub"
+	mcpcompat "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/dvgamerr-app/gokub-mcp/prompts"
 	"github.com/dvgamerr-app/gokub-mcp/resources"
 	"github.com/dvgamerr-app/gokub-mcp/tools"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
-	"os"
-
-	"github.com/dvgamerr-app/go-bitkub/bitkub"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog/log"
 	"github.com/tmilewski/goenv"
 )
@@ -33,16 +36,64 @@ func init() {
 	}
 }
 
-func logServerInfo(s *server.MCPServer, mode string) {
-	log.Info().Msgf("Starting Bitkub MCP Server (%s Mode)...", mode)
+type toolRegistration struct {
+	tool    mcpcompat.Tool
+	handler mcpcompat.ToolHandler
+}
 
-	if tools := s.ListTools(); len(tools) > 0 {
-		log.Info().Msg("Available Tools:")
-		i := 1
-		for _, tool := range tools {
-			log.Info().Msgf("   %d. %s - %s", i, tool.Tool.Name, tool.Tool.Description)
-			i++
-		}
+func toolRegistrations() []toolRegistration {
+	return []toolRegistration{
+		{tools.NewWalletBalanceTool(), tools.WalletBalanceHandler},
+		{tools.NewTickerTool(), tools.TickerHandler},
+		{tools.NewMarketDepthTool(), tools.MarketDepthHandler},
+		{tools.NewOpenOrdersTool(), tools.OpenOrdersHandler},
+		{tools.NewSymbolsTool(), tools.SymbolsHandler},
+		{tools.NewFeeScheduleTool(), tools.FeeScheduleHandler},
+		{tools.NewCalculatePositionSizeTool(), tools.CalculatePositionSizeHandler},
+		{tools.NewCalculateSpreadTool(), tools.CalculateSpreadHandler},
+		{tools.NewCalculateLiquidityDepthTool(), tools.CalculateLiquidityDepthHandler},
+		{tools.NewGetMarketScreenerTool(), tools.GetMarketScreenerHandler},
+		{tools.NewHistoricalCandlesTool(), tools.HistoricalCandlesHandler},
+		{tools.NewExtractClosePricesTool(), tools.ExtractClosePricesHandler},
+		{tools.NewCalculateEMATool(), tools.CalculateEMAHandler},
+		{tools.NewCalculateROCTool(), tools.CalculateROCHandler},
+		{tools.NewCalculateATRTool(), tools.CalculateATRHandler},
+		{tools.NewCalculateRSITool(), tools.CalculateRSIHandler},
+		{tools.NewCalculateRelativeStrengthRankTool(), tools.CalculateRelativeStrengthRankHandler},
+		{tools.NewDetectBreakoutSignalTool(), tools.DetectBreakoutSignalHandler},
+		{tools.NewDetectPullbackSignalTool(), tools.DetectPullbackSignalHandler},
+		{tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler},
+		{tools.NewCalculateCAPMTool(), tools.CalculateCAPMHandler},
+		{tools.NewSymbolRulesTool(), tools.SymbolRulesHandler},
+		{tools.NewRoundToExchangeRulesTool(), tools.RoundToExchangeRulesHandler},
+		{tools.NewValidateTradeSetupTool(), tools.ValidateTradeSetupHandler},
+		{tools.NewPlaceLimitOrderTool(), tools.PlaceLimitOrderHandler},
+		{tools.NewPlaceStopLimitOrderTool(), tools.PlaceStopLimitOrderHandler},
+		{tools.NewClientSideStopWorkerTool(), tools.ClientSideStopWorkerHandler},
+		{tools.NewGetOrderStatusTool(), tools.GetOrderStatusHandler},
+		{tools.NewCancelOrderTool(), tools.CancelOrderHandler},
+		{tools.NewCheckTradePnLTool(), tools.CheckTradePnLHandler},
+		{tools.NewCalculateTrailingStopTool(), tools.CalculateTrailingStopHandler},
+		{tools.NewCheckExitSignalsTool(), tools.CheckExitSignalsHandler},
+		{tools.NewLogTradeEntryTool(), tools.LogTradeEntryHandler},
+		{tools.NewLogTradeExitTool(), tools.LogTradeExitHandler},
+		{tools.NewCalculateExpectancyTool(), tools.CalculateExpectancyHandler},
+		{tools.NewGetTradeHistoryTool(), tools.GetTradeHistoryHandler},
+		{tools.NewGetMarketOverviewTool(), tools.GetMarketOverviewHandler},
+		{tools.NewSimulateTradeTool(), tools.SimulateTradeHandler},
+		{tools.NewPnLWithFeesTool(), tools.PnLWithFeesHandler},
+	}
+}
+
+func logServerInfo(registrations []toolRegistration, mode string) {
+	log.Info().Msgf("Starting Bitkub MCP Server (%s Mode)...", mode)
+	if len(registrations) == 0 {
+		return
+	}
+
+	log.Info().Msg("Available Tools:")
+	for index, registration := range registrations {
+		log.Info().Msgf("   %d. %s - %s", index+1, registration.tool.Name, registration.tool.Description)
 	}
 }
 
@@ -52,86 +103,54 @@ var (
 )
 
 func main() {
-	serveHTTP := flag.Bool("serv", false, "Run server in HTTP mode instead of stdio")
-	flag.BoolVar(serveHTTP, "s", false, "Run server in HTTP mode instead of stdio (shorthand)")
+	serveHTTP := flag.Bool("serv", false, "Run server in Streamable HTTP mode instead of stdio")
+	flag.BoolVar(serveHTTP, "s", false, "Run server in Streamable HTTP mode instead of stdio (shorthand)")
 	flag.Parse()
 
-	s := server.NewMCPServer(
-		name,
-		version,
-		server.WithResourceCapabilities(true, true),
-	)
+	server := mcp.NewServer(&mcp.Implementation{
+		Name:    name,
+		Version: version,
+	}, nil)
 
-	s.AddTool(tools.NewWalletBalanceTool(), tools.WalletBalanceHandler)
-	s.AddTool(tools.NewTickerTool(), tools.TickerHandler)
-	s.AddTool(tools.NewMarketDepthTool(), tools.MarketDepthHandler)
-	s.AddTool(tools.NewOpenOrdersTool(), tools.OpenOrdersHandler)
-	s.AddTool(tools.NewSymbolsTool(), tools.SymbolsHandler)
-	s.AddTool(tools.NewFeeScheduleTool(), tools.FeeScheduleHandler)
-	s.AddTool(tools.NewCalculatePositionSizeTool(), tools.CalculatePositionSizeHandler)
-	s.AddTool(tools.NewCalculateSpreadTool(), tools.CalculateSpreadHandler)
-	s.AddTool(tools.NewCalculateLiquidityDepthTool(), tools.CalculateLiquidityDepthHandler)
-	s.AddTool(tools.NewGetMarketScreenerTool(), tools.GetMarketScreenerHandler)
-	s.AddTool(tools.NewHistoricalCandlesTool(), tools.HistoricalCandlesHandler)
-	s.AddTool(tools.NewExtractClosePricesTool(), tools.ExtractClosePricesHandler)
-	s.AddTool(tools.NewCalculateEMATool(), tools.CalculateEMAHandler)
-	s.AddTool(tools.NewCalculateROCTool(), tools.CalculateROCHandler)
-	s.AddTool(tools.NewCalculateATRTool(), tools.CalculateATRHandler)
-	s.AddTool(tools.NewCalculateRSITool(), tools.CalculateRSIHandler)
-	s.AddTool(tools.NewCalculateRelativeStrengthRankTool(), tools.CalculateRelativeStrengthRankHandler)
-	s.AddTool(tools.NewDetectBreakoutSignalTool(), tools.DetectBreakoutSignalHandler)
-	s.AddTool(tools.NewDetectPullbackSignalTool(), tools.DetectPullbackSignalHandler)
-	s.AddTool(tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler)
-	s.AddTool(tools.NewCalculateCAPMTool(), tools.CalculateCAPMHandler)
-	s.AddTool(tools.NewSymbolRulesTool(), tools.SymbolRulesHandler)
-	s.AddTool(tools.NewRoundToExchangeRulesTool(), tools.RoundToExchangeRulesHandler)
-	s.AddTool(tools.NewValidateTradeSetupTool(), tools.ValidateTradeSetupHandler)
-	s.AddTool(tools.NewPlaceLimitOrderTool(), tools.PlaceLimitOrderHandler)
-	s.AddTool(tools.NewPlaceStopLimitOrderTool(), tools.PlaceStopLimitOrderHandler)
-	s.AddTool(tools.NewClientSideStopWorkerTool(), tools.ClientSideStopWorkerHandler)
-	s.AddTool(tools.NewGetOrderStatusTool(), tools.GetOrderStatusHandler)
-	s.AddTool(tools.NewCancelOrderTool(), tools.CancelOrderHandler)
-	s.AddTool(tools.NewCheckTradePnLTool(), tools.CheckTradePnLHandler)
-	s.AddTool(tools.NewCalculateTrailingStopTool(), tools.CalculateTrailingStopHandler)
-	s.AddTool(tools.NewCheckExitSignalsTool(), tools.CheckExitSignalsHandler)
-	s.AddTool(tools.NewLogTradeEntryTool(), tools.LogTradeEntryHandler)
-	s.AddTool(tools.NewLogTradeExitTool(), tools.LogTradeExitHandler)
-	s.AddTool(tools.NewCalculateExpectancyTool(), tools.CalculateExpectancyHandler)
-	s.AddTool(tools.NewGetTradeHistoryTool(), tools.GetTradeHistoryHandler)
-	s.AddTool(tools.NewGetMarketOverviewTool(), tools.GetMarketOverviewHandler)
-	s.AddTool(tools.NewSimulateTradeTool(), tools.SimulateTradeHandler)
-	s.AddTool(tools.NewPnLWithFeesTool(), tools.PnLWithFeesHandler)
+	registrations := toolRegistrations()
+	for _, registration := range registrations {
+		mcpcompat.AddTool(server, registration.tool, registration.handler)
+	}
 
-	s.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
-	s.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)
-
-	s.AddResource(resources.NewSymbolsResource().Resource, resources.NewSymbolsResource().Handler)
-	s.AddResourceTemplate(resources.NewTickerResource().Template, resources.NewTickerResource().Handler)
+	server.AddPrompt(prompts.NewTradingStrategyPrompt(), prompts.TradingStrategyHandler)
+	server.AddPrompt(prompts.NewMarketAnalysisPrompt(), prompts.MarketAnalysisHandler)
+	server.AddResource(resources.NewSymbolsResource(), resources.SymbolsResourceHandler)
+	server.AddResourceTemplate(resources.NewTickerResource(), resources.TickerResourceHandler)
 
 	if *serveHTTP {
-		logServerInfo(s, "HTTP")
+		logServerInfo(registrations, "Streamable HTTP")
 
 		port := os.Getenv("PORT")
 		if port == "" {
 			port = "3000"
 		}
 
-		log.Info().Str("port", port).Msgf("Server listening on http://localhost:%s", port)
-		log.Info().Msg("Endpoint SSE: /sse, Message: /msg")
+		log.Info().Str("port", port).Msgf("Server listening on http://localhost:%s/mcp", port)
+		log.Info().Msg("MCP endpoint: /mcp (stateless, protocol 2026-07-28)")
 
-		sseServer := server.NewSSEServer(s,
-			server.WithSSEEndpoint("/sse"),
-			server.WithMessageEndpoint("/msg"),
-		)
+		handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+			return server
+		}, &mcp.StreamableHTTPOptions{
+			Stateless:                    true,
+			JSONResponse:                 true,
+			PropagateRequestCancellation: true,
+		})
+		mux := http.NewServeMux()
+		mux.Handle("/mcp", handler)
 
 		addr := ":" + port
-		if err := sseServer.Start(addr); err != nil {
+		if err := http.ListenAndServe(addr, mux); err != nil {
 			log.Fatal().Err(err).Msg("Server error")
 		}
 	} else {
-		logServerInfo(s, "stdio")
+		logServerInfo(registrations, "stdio")
 
-		if err := server.ServeStdio(s); err != nil {
+		if err := server.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatal().Err(err).Msg("Server error")
 		}
 	}

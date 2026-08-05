@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 func callBreakout(t *testing.T, candles []any, lookback float64) (*BreakoutSignal, error) {

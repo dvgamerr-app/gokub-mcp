@@ -3,8 +3,8 @@ package utils
 import (
 	"fmt"
 
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	jsoniter "github.com/json-iterator/go"
-	"github.com/mark3labs/mcp-go/mcp"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
@@ -81,7 +81,7 @@ func TextResult(message string) (*mcp.CallToolResult, error) {
 func ArtifactsResult(contents string, args any) (*mcp.CallToolResult, error) {
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
-			mcp.TextContent{Type: "text", Text: contents},
+			&mcp.TextContent{Text: contents},
 		},
 		StructuredContent: args,
 	}, nil

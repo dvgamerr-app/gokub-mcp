@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // TestExtractClosePricesValues verifies extracted prices match input candles (ASSIGNMENT.md Extra E2).

@@ -5,7 +5,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 func makeCandleSlice(n int, last map[string]any) []any {

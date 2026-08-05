@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/rs/zerolog/log"
 )
 
@@ -118,4 +118,3 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 
 	return utils.ArtifactsResult(summary, result)
 }
-

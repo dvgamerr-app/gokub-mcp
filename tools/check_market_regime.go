@@ -7,7 +7,7 @@ import (
 	"math"
 	"strings"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/rs/zerolog/log"
 )
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"math"
 
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
-	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/rs/zerolog/log"
 )
 

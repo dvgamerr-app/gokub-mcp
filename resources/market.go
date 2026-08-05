@@ -6,24 +6,20 @@ import (
 	"fmt"
 
 	"github.com/dvgamerr-app/go-bitkub/market"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog/log"
 )
 
-func NewSymbolsResource() server.ServerResource {
-	return server.ServerResource{
-		Resource: mcp.NewResource(
-			"bitkub://symbols",
-			"Trading Symbols",
-			mcp.WithResourceDescription("List of all available trading pairs on Bitkub"),
-			mcp.WithMIMEType("application/json"),
-		),
-		Handler: SymbolsResourceHandler,
+func NewSymbolsResource() *mcp.Resource {
+	return &mcp.Resource{
+		URI:         "bitkub://symbols",
+		Name:        "Trading Symbols",
+		Description: "List of all available trading pairs on Bitkub",
+		MIMEType:    "application/json",
 	}
 }
 
-func SymbolsResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+func SymbolsResourceHandler(ctx context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	log.Debug().Str("uri", request.Params.URI).Msg("read_resource")
 
 	result, err := market.GetSymbols()
@@ -38,28 +34,27 @@ func SymbolsResourceHandler(ctx context.Context, request mcp.ReadResourceRequest
 		return nil, fmt.Errorf("failed to marshal symbols: %w", err)
 	}
 
-	return []mcp.ResourceContents{
-		mcp.TextResourceContents{
-			URI:      request.Params.URI,
-			MIMEType: "application/json",
-			Text:     string(jsonData),
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      request.Params.URI,
+				MIMEType: "application/json",
+				Text:     string(jsonData),
+			},
 		},
 	}, nil
 }
 
-func NewTickerResource() server.ServerResourceTemplate {
-	return server.ServerResourceTemplate{
-		Template: mcp.NewResourceTemplate(
-			"bitkub://ticker/{symbol}",
-			"Market Ticker",
-			mcp.WithTemplateDescription("Real-time price and market data for a specific trading pair"),
-			mcp.WithTemplateMIMEType("application/json"),
-		),
-		Handler: TickerResourceHandler,
+func NewTickerResource() *mcp.ResourceTemplate {
+	return &mcp.ResourceTemplate{
+		URITemplate: "bitkub://ticker/{symbol}",
+		Name:        "Market Ticker",
+		Description: "Real-time price and market data for a specific trading pair",
+		MIMEType:    "application/json",
 	}
 }
 
-func TickerResourceHandler(ctx context.Context, request mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+func TickerResourceHandler(ctx context.Context, request *mcp.ReadResourceRequest) (*mcp.ReadResourceResult, error) {
 	log.Debug().Str("uri", request.Params.URI).Msg("read_resource")
 
 	var symbol string
@@ -81,11 +76,13 @@ func TickerResourceHandler(ctx context.Context, request mcp.ReadResourceRequest)
 		return nil, fmt.Errorf("failed to marshal ticker: %w", err)
 	}
 
-	return []mcp.ResourceContents{
-		mcp.TextResourceContents{
-			URI:      request.Params.URI,
-			MIMEType: "application/json",
-			Text:     string(jsonData),
+	return &mcp.ReadResourceResult{
+		Contents: []*mcp.ResourceContents{
+			{
+				URI:      request.Params.URI,
+				MIMEType: "application/json",
+				Text:     string(jsonData),
+			},
 		},
 	}, nil
 }

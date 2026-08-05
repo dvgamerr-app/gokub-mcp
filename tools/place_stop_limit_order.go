@@ -3,7 +3,7 @@ package tools
 import (
 	"context"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // ponytail: Bitkub has no native stop-limit, so this delegates to the same

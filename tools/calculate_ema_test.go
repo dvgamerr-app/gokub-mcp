@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // TestCalculateEMAFormula verifies EMA series + current value (ASSIGNMENT.md §3, tool 11).

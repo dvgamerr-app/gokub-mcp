@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // TestCalculateRSIFormula verifies RSI(0-100) and signal (ASSIGNMENT.md §6, tool 14).

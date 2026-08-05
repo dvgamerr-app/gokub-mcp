@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // TestCalculateRSRankOrdering verifies ranking by ROC and top3 output (ASSIGNMENT.md §4, tool 18).

@@ -26,8 +26,8 @@
 <td width="50%">
 
 ### 🎯 Core Features
-- ✅ **MCP Server** - Built with mcp-go
-- 🌐 **HTTP/SSE** - Real-time communication
+- ✅ **MCP 2026-07-28** - Built with the official Go SDK
+- 🌐 **Streamable HTTP** - Stateless `/mcp` endpoint
 - 🔐 **Secure** - HMAC SHA256 signature
 - 💰 **Wallet** - View balances & transactions
 
@@ -89,7 +89,7 @@ cd gokub-mcp
 go install .
 ```
 
-> Prefer containers? Use [🐳 Docker](#-docker) (HTTP/SSE mode).
+> Prefer containers? Use [🐳 Docker](#-docker) (Streamable HTTP mode).
 
 ### 2️⃣ Credentials
 
@@ -204,7 +204,7 @@ See [`plugins/bitkub-trade`](plugins/bitkub-trade/README.md) for details.
 
 ## 🐳 Docker
 
-Runs the server in **HTTP/SSE mode** (good for a shared/remote server; for a local
+Runs the server in **stateless Streamable HTTP mode** (good for a shared/remote server; for a local
 client that spawns the binary over stdio, use the native build above):
 
 ```bash
@@ -215,7 +215,7 @@ docker run --rm -p 8080:8080 \
   gokub-mcp
 ```
 
-Then point an SSE-capable client at `http://localhost:8080/sse`. Override the port with
+Then point a Streamable HTTP client at `http://localhost:8080/mcp`. Override the port with
 `-e PORT=9000 -p 9000:9000`.
 
 > The build fetches Go deps from the module proxy (needs internet). For an offline /
@@ -231,7 +231,7 @@ This is the default transport for locally registered Claude Code and Codex clien
 go run .
 ```
 
-### HTTP/SSE Server Mode
+### Streamable HTTP Server Mode
 
 ```bash
 # Default port 3000
@@ -248,8 +248,7 @@ PORT=9000 go run . -serv
 
 | Endpoint | Purpose | Method |
 |----------|---------|--------|
-| `http://localhost:3000/sse` | SSE Connection | GET |
-| `http://localhost:3000/msg` | Send Message | POST |
+| `http://localhost:3000/mcp` | Stateless MCP requests | POST |
 
 </details>
 
@@ -336,7 +335,7 @@ size → **validate gate** → round → place → manage → log) and the hard 
 |----------|----------|---------|
 | `BTK_APIKEY` | for trading/wallet | Bitkub API key |
 | `BTK_SECRET` | for trading/wallet | Bitkub API secret |
-| `PORT` | no (default `3000`) | HTTP/SSE port (`-serv` mode) |
+| `PORT` | no (default `3000`) | Streamable HTTP port (`-serv` mode) |
 | `TRADES_FILE` | no (default `trades.json`) | trade-journal file path |
 | `LOG_FORMAT` | no (default JSON) | Set to `text` for console-friendly logs |
 | `LOG_LEVEL` | no (default `info`) | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, or `panic` |
@@ -348,21 +347,17 @@ wallet/order tools need them.
 > ⚠️ Keep secrets in env vars / your client config, never commit `.env` (it's gitignored).
 
 <details>
-<summary><b>🤖 Legacy: Claude Desktop (SSE) config</b></summary>
+<summary><b>🤖 Remote Streamable HTTP config</b></summary>
 
-If you run the HTTP server (or the Docker image) and use the Claude **Desktop** app,
-point it at the SSE endpoint:
+If your MCP client accepts a remote server URL, point it at the Streamable HTTP endpoint:
 
 ```json
 {
   "mcpServers": {
-    "gokub": { "url": "http://localhost:3000/sse", "transport": "sse" }
+    "gokub": { "type": "http", "url": "http://localhost:3000/mcp" }
   }
 }
 ```
-
-**Windows:** `%APPDATA%\Claude\claude_desktop_config.json` ·
-**Mac:** `~/Library/Application Support/Claude/claude_desktop_config.json`
 
 For **Claude Code / Codex**, prefer `claude mcp add` / `codex mcp add` (stdio) above.
 
@@ -386,8 +381,8 @@ against real credentials.
 
 ```
 gokub-mcp/
-├── 📄 main.go                      # MCP Server entry point (HTTP/SSE) + tool registration
-├── 🐳 Dockerfile                   # HTTP/SSE server image
+├── 📄 main.go                      # MCP Server entry point (Streamable HTTP) + tool registration
+├── 🐳 Dockerfile                   # Streamable HTTP server image
 ├── 📂 tools/                       # 39 MCP tools (+ unit tests)
 ├── 📂 prompts/                     # trading_strategy, market_analysis prompts
 ├── 📂 resources/                   # bitkub://symbols, bitkub://ticker/{symbol}
@@ -413,7 +408,7 @@ gokub-mcp/
 ## 🚀 Roadmap
 
 ### ✅ Completed
-- [x] Bitkub API golang library + MCP Server (HTTP/SSE + stdio)
+- [x] Bitkub API golang library + MCP Server (Streamable HTTP + stdio)
 - [x] **39 trading tools** — foundation, indicators, entry signals, risk, orders, management, logging
 - [x] Risk-based position sizing + pre-trade `validate_trade_setup` gate
 - [x] Client-side stop worker (Bitkub has no native stop/OCO)
@@ -431,13 +426,13 @@ gokub-mcp/
 
 ## 📚 References
 
-🔧 [**MCP-Go Framework**](https://github.com/mark3labs/mcp-go)
+🔧 [**Official MCP Go SDK**](https://github.com/modelcontextprotocol/go-sdk)
 
 💎 [**Go-Bitkub SDK**](https://github.com/dvgamerr-app/go-bitkub)
 
 📖 [**Bitkub Official API Docs**](https://github.com/bitkub/bitkub-official-api-docs)
 
-🤖 [**Protocol MCP Spec**](https://modelcontextprotocol.io/)
+🤖 [**MCP 2026-07-28 Specification**](https://modelcontextprotocol.io/specification/2026-07-28)
 
 
 

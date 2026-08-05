@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 type PositionSizeInput struct {

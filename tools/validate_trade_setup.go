@@ -6,7 +6,7 @@ import (
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"strings"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 // ponytail: pure validator — takes metrics already computed by the other tools

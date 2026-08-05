@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mark3labs/mcp-go/mcp"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
 
 type ExitSignalsOutput struct {
