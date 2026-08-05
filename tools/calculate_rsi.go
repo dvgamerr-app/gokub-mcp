@@ -38,14 +38,9 @@ func CalculateRSIHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	pricesRaw, ok := args["prices"].([]any)
-	if !ok {
-		return utils.ErrorResult("prices must be an array")
-	}
-
-	prices, err := utils.ParseFloatArray(pricesRaw)
+	prices, err := utils.GetFloat64ArrayArg(args, "prices")
 	if err != nil {
-		return utils.ErrorResult("prices must contain numbers only")
+		return utils.ErrorResult(err.Error())
 	}
 
 	period := utils.GetIntArg(args, "period", 14)
@@ -82,32 +77,30 @@ func CalculateRSIHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 }
 
 func calculateRSI(prices []float64, period int) float64 {
-	gains := make([]float64, 0)
-	losses := make([]float64, 0)
-
-	for i := 1; i < len(prices); i++ {
-		change := prices[i] - prices[i-1]
-		if change > 0 {
-			gains = append(gains, change)
-			losses = append(losses, 0)
-		} else {
-			gains = append(gains, 0)
-			losses = append(losses, -change)
-		}
-	}
-
 	avgGain := 0.0
 	avgLoss := 0.0
-	for i := range period {
-		avgGain += gains[i]
-		avgLoss += losses[i]
+	for i := 1; i <= period; i++ {
+		change := prices[i] - prices[i-1]
+		if change > 0 {
+			avgGain += change
+		} else {
+			avgLoss -= change
+		}
 	}
 	avgGain /= float64(period)
 	avgLoss /= float64(period)
 
-	for i := period; i < len(gains); i++ {
-		avgGain = (avgGain*float64(period-1) + gains[i]) / float64(period)
-		avgLoss = (avgLoss*float64(period-1) + losses[i]) / float64(period)
+	for i := period + 1; i < len(prices); i++ {
+		change := prices[i] - prices[i-1]
+		gain := 0.0
+		loss := 0.0
+		if change > 0 {
+			gain = change
+		} else {
+			loss = -change
+		}
+		avgGain = (avgGain*float64(period-1) + gain) / float64(period)
+		avgLoss = (avgLoss*float64(period-1) + loss) / float64(period)
 	}
 
 	if avgLoss == 0 {

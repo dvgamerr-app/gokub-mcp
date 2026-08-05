@@ -38,14 +38,9 @@ func CalculateROCHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	pricesRaw, ok := args["prices"].([]any)
-	if !ok {
-		return utils.ErrorResult("prices must be an array")
-	}
-
-	prices, err := utils.ParseFloatArray(pricesRaw)
+	prices, err := utils.GetFloat64ArrayArg(args, "prices")
 	if err != nil {
-		return utils.ErrorResult("prices must contain numbers only")
+		return utils.ErrorResult(err.Error())
 	}
 
 	period := utils.GetIntArg(args, "period", 14)

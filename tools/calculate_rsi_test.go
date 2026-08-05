@@ -83,3 +83,15 @@ func TestCalculateRSIHandler(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkCalculateRSI(b *testing.B) {
+	prices := make([]float64, 512)
+	for i := range prices {
+		prices[i] = 100 + float64(i%17)
+	}
+
+	b.ReportAllocs()
+	for b.Loop() {
+		calculateRSI(prices, 14)
+	}
+}

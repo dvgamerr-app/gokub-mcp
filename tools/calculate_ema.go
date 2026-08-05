@@ -39,14 +39,9 @@ func CalculateEMAHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	pricesRaw, ok := args["prices"].([]any)
-	if !ok {
-		return utils.ErrorResult("prices must be an array")
-	}
-
-	prices, err := utils.ParseFloatArray(pricesRaw)
+	prices, err := utils.GetFloat64ArrayArg(args, "prices")
 	if err != nil {
-		return utils.ErrorResult("prices must contain numbers only")
+		return utils.ErrorResult(err.Error())
 	}
 
 	period := utils.GetIntArg(args, "period", 0)
@@ -61,7 +56,10 @@ func CalculateEMAHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	emaValues := calculateEMA(prices, period)
 
 	current := emaValues[len(emaValues)-1]
-	previous := emaValues[len(emaValues)-2]
+	previous := current
+	if len(emaValues) > 1 {
+		previous = emaValues[len(emaValues)-2]
+	}
 	trend := "neutral"
 	if current > previous {
 		trend = "bullish"

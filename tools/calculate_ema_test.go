@@ -38,6 +38,28 @@ func TestCalculateEMAFormula(t *testing.T) {
 	}
 }
 
+func TestCalculateEMASinglePrice(t *testing.T) {
+	req := mcp.CallToolRequest{
+		Params: mcp.CallToolParams{
+			Arguments: map[string]any{
+				"period": float64(1),
+				"prices": []any{42.0},
+			},
+		},
+	}
+	result, err := CalculateEMAHandler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out, ok := result.StructuredContent.(*EMAResult)
+	if !ok {
+		t.Fatal("StructuredContent is not *EMAResult")
+	}
+	if out.Current != 42 || out.Previous != 42 || out.Trend != "neutral" {
+		t.Fatalf("single-price EMA = current %v, previous %v, trend %q", out.Current, out.Previous, out.Trend)
+	}
+}
+
 func TestCalculateEMAHandler(t *testing.T) {
 	tests := []struct {
 		name    string

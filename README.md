@@ -3,7 +3,7 @@
 # 🚀 Bitkub MCP Server
 
 [![CodeQL](https://github.com/dvgamerr-app/gokub-mcp/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/dvgamerr-app/gokub-mcp/actions/workflows/codeql-analysis.yml)
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.25.5+-00ADD8?style=flat&logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-7289DA?style=flat&logo=discord)](https://discord.gg/QDccF497Mw)
 
@@ -51,6 +51,8 @@
 
 ### 1️⃣ Install the MCP server
 
+Requires Go 1.25.5 or newer.
+
 ```bash
 go install github.com/dvgamerr-app/gokub-mcp@latest
 ```
@@ -93,7 +95,7 @@ go install .
 
 The server reads `BTK_APIKEY` / `BTK_SECRET` from its **environment** — pass them when you
 register the server (steps 3–4), so no `.env` file is required. For a plain local
-`go run main.go`, a `.env` in the repo root still works:
+`go run .`, a `.env` in the repo root still works:
 
 ```bash
 BTK_APIKEY=your_api_key
@@ -221,14 +223,22 @@ Then point an SSE-capable client at `http://localhost:8080/sse`. Override the po
 
 ## 🎮 Usage
 
+### Standard input/output mode
+
+This is the default transport for locally registered Claude Code and Codex clients:
+
+```bash
+go run .
+```
+
 ### HTTP/SSE Server Mode
 
 ```bash
 # Default port 3000
-go run main.go
+go run . -serv
 
 # Custom port
-PORT=9000 go run main.go
+PORT=9000 go run . -serv
 ```
 
 <details>
@@ -328,6 +338,8 @@ size → **validate gate** → round → place → manage → log) and the hard 
 | `BTK_SECRET` | for trading/wallet | Bitkub API secret |
 | `PORT` | no (default `3000`) | HTTP/SSE port (`-serv` mode) |
 | `TRADES_FILE` | no (default `trades.json`) | trade-journal file path |
+| `LOG_FORMAT` | no (default JSON) | Set to `text` for console-friendly logs |
+| `LOG_LEVEL` | no (default `info`) | `trace`, `debug`, `info`, `warn`, `error`, `fatal`, or `panic` |
 
 Pass keys when you register the MCP server (see [Installation](#-installation) steps 3–4) —
 that's preferred over a committed `.env`. Public market-data tools work without keys;
@@ -356,6 +368,20 @@ For **Claude Code / Codex**, prefer `claude mcp add` / `codex mcp add` (stdio) a
 
 </details>
 
+## 🧪 Development and verification
+
+```bash
+go mod verify
+go test ./...
+go vet ./...
+go build ./...
+```
+
+The default test suite is deterministic and excludes `tools/get_historical_candles_live_test.go`.
+The opt-in `live` build tag calls public Bitkub market-data endpoints and should only be
+used intentionally. Do not run authenticated wallet or order flows as automated tests
+against real credentials.
+
 ## 📁 Project Structure
 
 ```
@@ -366,7 +392,7 @@ gokub-mcp/
 ├── 📂 prompts/                     # trading_strategy, market_analysis prompts
 ├── 📂 resources/                   # bitkub://symbols, bitkub://ticker/{symbol}
 ├── 📂 utils/                       # Utility functions
-├── 📂 docs/                        # ASSIGNMENT.md (spec & build progress)
+├── 📂 docs/                        # Project images and supporting documentation
 ├── 📂 plugins/bitkub-trade/        # bitkub-trade plugin (playbook skill)
 │   ├── .claude-plugin/plugin.json  # Claude manifest
 │   ├── .codex-plugin/plugin.json   # Codex manifest

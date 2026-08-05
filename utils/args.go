@@ -102,6 +102,19 @@ func ParseFloatArray(raw []any) ([]float64, error) {
 	return out, nil
 }
 
+func GetFloat64ArrayArg(args map[string]any, key string) ([]float64, error) {
+	raw, ok := args[key].([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be an array", key)
+	}
+
+	values, err := ParseFloatArray(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s must contain numbers only", key)
+	}
+	return values, nil
+}
+
 func MustJSON(v any) string {
 	data, err := json.Marshal(v)
 	if err != nil {
