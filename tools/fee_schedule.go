@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 
-	"github.com/dvgamerr-app/go-bitkub/market"
+	"github.com/dvgamerr-app/go-bitkub/user"
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/rs/zerolog/log"
 )
@@ -31,7 +31,7 @@ func NewFeeScheduleTool() mcp.Tool {
 func FeeScheduleHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	log.Debug().Msg("Getting fee schedule")
 
-	credits, err := market.GetTradingCredits()
+	credits, err := user.GetTradingCredits()
 	if err != nil {
 		log.Warn().Err(err).Msg("Failed to get trading credits")
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
