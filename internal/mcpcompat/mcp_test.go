@@ -10,6 +10,7 @@ func TestNewToolBuildsInputSchema(t *testing.T) {
 		WithDescription("example tool"),
 		WithString("symbol", Required(), Description("trading pair")),
 		WithNumber("limit", DefaultNumber(10)),
+		WithArray("prices", Items("number")),
 	)
 
 	if tool.Description != "example tool" {
@@ -26,5 +27,8 @@ func TestNewToolBuildsInputSchema(t *testing.T) {
 	}
 	if properties["limit"].(map[string]any)["default"] != float64(10) {
 		t.Fatalf("limit schema = %#v", properties["limit"])
+	}
+	if !reflect.DeepEqual(properties["prices"].(map[string]any)["items"], map[string]any{"type": "number"}) {
+		t.Fatalf("prices schema = %#v", properties["prices"])
 	}
 }

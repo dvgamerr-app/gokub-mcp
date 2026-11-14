@@ -21,6 +21,7 @@ func NewCalculateROCTool() mcp.Tool {
 	return mcp.NewTool("calculate_roc",
 		mcp.WithDescription(`Calculate Rate of Change (ROC) percentage from price data`),
 		mcp.WithArray("prices",
+			mcp.Items("number"),
 			mcp.Required(),
 			mcp.Description("Array of price values (close prices) for ROC calculation"),
 		),

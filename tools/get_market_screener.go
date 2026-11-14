@@ -24,6 +24,16 @@ type ScreenerResult struct {
 	LastPrice      float64
 }
 
+func recoverMarketRequest[T any](request func() (T, error)) (result T, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			err = fmt.Errorf("market request panicked: %v", recovered)
+		}
+	}()
+
+	return request()
+}
+
 func NewGetMarketScreenerTool() mcp.Tool {
 	return mcp.NewTool("get_market_screener",
 		mcp.WithDescription("Screen and rank trading pairs by volume, spread, and liquidity depth. Returns top pairs suitable for trading"),
@@ -52,15 +62,21 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	minVolume := utils.GetFloat64Arg(args, "min_volume_24h", 1000000.0)
 	maxSpread := utils.GetFloat64Arg(args, "max_spread", 2.0)
 	minDepth := utils.GetFloat64Arg(args, "min_depth", 50000.0)
-	limit := utils.GetFloat64Arg(args, "limit", 10)
+	limit := min(max(utils.GetIntArg(args, "limit", 10), 1), 20)
 
-	toolOutput, err := SymbolsHandler(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{
-		Name:      "get_symbols",
-		Arguments: map[string]any{"limit": limit},
-	}})
+	toolOutput, err := recoverMarketRequest(func() (*mcp.CallToolResult, error) {
+		return SymbolsHandler(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{
+			Name:      "get_symbols",
+			Arguments: map[string]any{"limit": float64(10000)},
+		}})
+	})
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch symbols from market")
 		return utils.ErrorResult("failed to fetch symbols from market")
+	}
+	if toolOutput == nil {
+		log.Warn().Msg("Empty symbol data received")
+		return utils.ErrorResult("failed to parse symbol data: empty result")
 	}
 
 	toolResults, ok := toolOutput.StructuredContent.(map[string][]*SymbolInfo)
@@ -83,6 +99,11 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	for _, sym := range symbolsInfo {
+		if sym == nil {
+			stats["ticker_fail"]++
+			continue
+		}
+
 		if sym.Volume24h < minVolume {
 			stats["low_volume"]++
 			continue
@@ -101,8 +122,10 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 			continue
 		}
 
-		depth, err := market.GetDepth(sym.Symbol, 100)
-		if err != nil {
+		depth, err := recoverMarketRequest(func() (*market.DepthResult, error) {
+			return fetchMarketDepth(ctx, sym.Symbol, 100)
+		})
+		if err != nil || depth == nil {
 			stats["depth_fail"]++
 			continue
 		}
@@ -161,11 +184,15 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return results[i].Score > results[j].Score
 	})
 
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
 	result := "🔍 Market Screener Results:\n"
 	result += fmt.Sprintf("Filters: Vol≥%.0fK, Spread≤%.2f%%, Depth≥%.0fK\n\n", minVolume/1000, maxSpread, minDepth/1000)
 
 	if len(results) == 0 {
-		result += "No pairs match criteria"
+		result += fmt.Sprintf("No pairs match criteria (depth failures: %d, low depth: %d)", stats["depth_fail"], stats["low_depth"])
 	} else {
 		for i, r := range results {
 			result += fmt.Sprintf("%d. %s (Score: %.1f)\n", i+1, strings.ToUpper(r.Symbol), r.Score)
@@ -183,6 +210,7 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 			"max_spread":     maxSpread,
 			"min_depth":      minDepth,
 		},
+		"stats":         stats,
 		"results_count": len(results),
 		"results":       results,
 	}

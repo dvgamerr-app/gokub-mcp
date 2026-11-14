@@ -28,6 +28,7 @@ func NewCalculateATRTool() mcp.Tool {
 	return mcp.NewTool("calculate_atr",
 		mcp.WithDescription(`Calculate Average True Range (ATR) and ATR% from OHLC data`),
 		mcp.WithArray("candles",
+			mcp.Items("object"),
 			mcp.Required(),
 			mcp.Description("Array of OHLC objects with high, low, close properties"),
 		),

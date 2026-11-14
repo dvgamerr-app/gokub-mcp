@@ -64,7 +64,7 @@ func CalculateLiquidityDepthHandler(ctx context.Context, request mcp.CallToolReq
 	ticker := tickers[0]
 	mid := (ticker.HighestBid + ticker.LowestAsk) / 2
 
-	depth, err := market.GetDepth(symbol, 100)
+	depth, err := fetchMarketDepth(ctx, symbol, 100)
 	if err != nil {
 		log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get market depth for liquidity")
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
