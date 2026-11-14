@@ -18,6 +18,7 @@ func NewExtractClosePricesTool() mcp.Tool {
 	return mcp.NewTool("extract_close_prices",
 		mcp.WithDescription("Extract close prices array from candles data (for use with EMA, RSI, ROC tools)"),
 		mcp.WithArray("candles",
+			mcp.Items("object"),
 			mcp.Required(),
 			mcp.Description("Array of OHLCV candle objects"),
 		),

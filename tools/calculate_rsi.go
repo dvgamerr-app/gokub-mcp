@@ -20,6 +20,7 @@ func NewCalculateRSITool() mcp.Tool {
 	return mcp.NewTool("calculate_rsi",
 		mcp.WithDescription(`Calculate Relative Strength Index (RSI) from price data`),
 		mcp.WithArray("prices",
+			mcp.Items("number"),
 			mcp.Required(),
 			mcp.Description("Array of price values (close prices) for RSI calculation"),
 		),

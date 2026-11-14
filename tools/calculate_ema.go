@@ -22,6 +22,7 @@ func NewCalculateEMATool() mcp.Tool {
 	return mcp.NewTool("calculate_ema",
 		mcp.WithDescription(`Calculate Exponential Moving Average (EMA) from price data`),
 		mcp.WithArray("prices",
+			mcp.Items("number"),
 			mcp.Required(),
 			mcp.Description("Array of price values (close prices) for EMA calculation"),
 		),

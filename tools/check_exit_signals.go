@@ -75,6 +75,7 @@ func NewCheckExitSignalsTool() mcp.Tool {
 	return mcp.NewTool("check_exit_signals",
 		mcp.WithDescription("Check emergency exit signals from OHLCV candles: STRUCTURE_BREAK (close below recent swing low), VOLUME_DRY (<0.5x avg volume), REJECTION_AT_RESISTANCE (upper-wick rejection near recent high)."),
 		mcp.WithArray("candles",
+			mcp.Items("object"),
 			mcp.Required(),
 			mcp.Description("Array of OHLCV objects (high, low, close, open, volume)"),
 		),

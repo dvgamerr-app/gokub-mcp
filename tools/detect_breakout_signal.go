@@ -25,6 +25,7 @@ func NewDetectBreakoutSignalTool() mcp.Tool {
 	return mcp.NewTool("detect_breakout_signal",
 		mcp.WithDescription(`Detect breakout signal when price makes new high with volume confirmation`),
 		mcp.WithArray("candles",
+			mcp.Items("object"),
 			mcp.Required(),
 			mcp.Description("Array of OHLCV candles (need at least lookback+1 candles)"),
 		),

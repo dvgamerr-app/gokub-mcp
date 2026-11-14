@@ -67,6 +67,12 @@ func WithArray(name string, options ...propertyOption) ToolOption {
 	return withProperty(name, "array", options...)
 }
 
+func Items(kind string) propertyOption {
+	return func(value *property) {
+		value.schema["items"] = map[string]any{"type": kind}
+	}
+}
+
 func WithObject(name string, options ...propertyOption) ToolOption {
 	return withProperty(name, "object", options...)
 }

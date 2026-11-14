@@ -6,9 +6,11 @@ import (
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"strings"
 
+	"github.com/dvgamerr-app/go-bitkub/bitkub"
 	"github.com/dvgamerr-app/go-bitkub/market"
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/rs/zerolog/log"
+	"net/url"
 )
 
 func NewMarketDepthTool() mcp.Tool {
@@ -37,7 +39,7 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 
 	log.Debug().Str("symbol", symbol).Int("limit", limit).Msg("Getting market depth")
 
-	depth, err := market.GetDepth(symbol, limit)
+	depth, err := fetchMarketDepth(ctx, symbol, limit)
 	if err != nil {
 		log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get market depth")
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
@@ -55,4 +57,22 @@ func MarketDepthHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.
 	}
 
 	return utils.ArtifactsResult(result, depth)
+}
+
+func fetchMarketDepth(ctx context.Context, symbol string, limit int) (*market.DepthResult, error) {
+	var response struct {
+		bitkub.Error
+		Result market.DepthResult `json:"result"`
+	}
+	path := fmt.Sprintf("/api/v3/market/depth?sym=%s&lmt=%d", url.QueryEscape(strings.ToLower(symbol)), limit)
+	if err := bitkub.FetchNonSecureWithContext(ctx, "GET", path, nil, &response); err != nil {
+		return nil, err
+	}
+	if response.GetError() != 0 {
+		return nil, fmt.Errorf("depth API error: %d", response.GetError())
+	}
+	if len(response.Result.Bids) == 0 && len(response.Result.Asks) == 0 {
+		return nil, fmt.Errorf("empty depth for %s", symbol)
+	}
+	return &response.Result, nil
 }

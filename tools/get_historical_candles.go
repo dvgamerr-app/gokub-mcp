@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
+	"sort"
 	"strings"
 	"time"
 
@@ -39,6 +40,7 @@ func NewHistoricalCandlesTool() mcp.Tool {
 	return mcp.NewTool("get_historical_candles",
 		mcp.WithDescription(`Get historical candlestick/OHLCV data for symbols with specified timeframe and limit. Supports single or multiple symbols.`),
 		mcp.WithArray("symbols",
+			mcp.Items("string"),
 			mcp.Required(),
 			mcp.Description("Array of trading pair symbols (e.g., ['btc_thb', 'eth_thb']) or single symbol ['btc_thb']"),
 		),
@@ -115,6 +117,11 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 			return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 		}
 
+		candles, err = latestHistory(candles, limit)
+		if err != nil {
+			return utils.ErrorResult(err.Error())
+		}
+
 		if len(candles.Close) == 0 {
 			log.Warn().Str("symbol", symbol).Msg("No candle data found")
 			return utils.ErrorResult("no data: " + symbol)
@@ -178,6 +185,11 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 		if err != nil {
 			log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get historical candles")
 			continue
+		}
+
+		candles, err = latestHistory(candles, limit)
+		if err != nil {
+			return utils.ErrorResult(err.Error())
 		}
 
 		if len(candles.Close) == 0 {
@@ -254,4 +266,32 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	return utils.ArtifactsResult(summary, resultData)
+}
+
+func latestHistory(data *market.HistoryResponse, limit int) (*market.HistoryResponse, error) {
+	if data == nil || limit < 1 {
+		return nil, fmt.Errorf("invalid history response or limit")
+	}
+	n := len(data.Time)
+	if len(data.Open) != n || len(data.High) != n || len(data.Low) != n || len(data.Close) != n || len(data.Volume) != n {
+		return nil, fmt.Errorf("history OHLCV arrays have mismatched lengths")
+	}
+	indices := make([]int, n)
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.SliceStable(indices, func(i, j int) bool { return data.Time[indices[i]] < data.Time[indices[j]] })
+	if n > limit {
+		indices = indices[n-limit:]
+	}
+	result := &market.HistoryResponse{Status: data.Status}
+	for _, i := range indices {
+		result.Time = append(result.Time, data.Time[i])
+		result.Open = append(result.Open, data.Open[i])
+		result.High = append(result.High, data.High[i])
+		result.Low = append(result.Low, data.Low[i])
+		result.Close = append(result.Close, data.Close[i])
+		result.Volume = append(result.Volume, data.Volume[i])
+	}
+	return result, nil
 }

@@ -32,7 +32,7 @@ func OpenOrdersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	symbol := strings.ToLower(utils.GetStringArg(args, "symbol"))
 	log.Debug().Str("symbol", symbol).Msg("Getting open orders")
 
-	orders, err := market.GetOpenOrders(symbol)
+	orders, err := fetchOpenOrders(symbol, market.GetSymbols, market.GetOpenOrders)
 	if err != nil {
 		log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get open orders")
 		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
@@ -58,4 +58,28 @@ func OpenOrdersHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.C
 	}
 
 	return utils.ArtifactsResult(result, orders)
+}
+
+func fetchOpenOrders(symbol string, getSymbols func() ([]market.Symbol, error), getOrders func(string) ([]market.OpenOrder, error)) ([]market.OpenOrder, error) {
+	if symbol == "" {
+		return nil, fmt.Errorf("symbol is required")
+	}
+	symbols, err := getSymbols()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch exchange symbol metadata")
+	}
+	for _, pair := range symbols {
+		if !strings.EqualFold(pair.Symbol, symbol) {
+			continue
+		}
+		if strings.EqualFold(pair.Source, "broker") {
+			return nil, fmt.Errorf("open orders unavailable for %s: Bitkub error 61, broker coins are not supported by this endpoint; order status is unknown", symbol)
+		}
+		orders, err := getOrders(strings.ToLower(pair.Symbol))
+		if err != nil {
+			return nil, fmt.Errorf("open orders request failed for %s: %s", symbol, strings.SplitN(err.Error(), " : ", 2)[0])
+		}
+		return orders, nil
+	}
+	return nil, fmt.Errorf("symbol not found: %s", symbol)
 }

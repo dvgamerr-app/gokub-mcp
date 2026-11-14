@@ -40,6 +40,7 @@ func NewCalculateTrailingStopTool() mcp.Tool {
 	return mcp.NewTool("calculate_trailing_stop",
 		mcp.WithDescription("Calculate an ATR-based trailing stop for a long position from OHLC candles. trailing_stop = current - atr_multiplier * ATR."),
 		mcp.WithArray("candles",
+			mcp.Items("object"),
 			mcp.Required(),
 			mcp.Description("Array of OHLC objects (high, low, close, optional volume)"),
 		),

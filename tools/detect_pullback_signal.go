@@ -31,6 +31,7 @@ func NewDetectPullbackSignalTool() mcp.Tool {
 	return mcp.NewTool("detect_pullback_signal",
 		mcp.WithDescription(`Detect pullback signal when price touches EMA20 with RSI bounce and reversal candle`),
 		mcp.WithArray("candles",
+			mcp.Items("object"),
 			mcp.Required(),
 			mcp.Description("Array of OHLCV candles (need at least 20+ for EMA and RSI calculation)"),
 		),
