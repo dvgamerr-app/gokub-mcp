@@ -53,6 +53,7 @@ func toolRegistrations() []toolRegistration {
 		{tools.NewCalculateSpreadTool(), tools.CalculateSpreadHandler},
 		{tools.NewCalculateLiquidityDepthTool(), tools.CalculateLiquidityDepthHandler},
 		{tools.NewGetMarketScreenerTool(), tools.GetMarketScreenerHandler},
+		{tools.NewAnalyzeMarketTradesTool(), tools.AnalyzeMarketTradesHandler},
 		{tools.NewHistoricalCandlesTool(), tools.HistoricalCandlesHandler},
 		{tools.NewExtractClosePricesTool(), tools.ExtractClosePricesHandler},
 		{tools.NewCalculateEMATool(), tools.CalculateEMAHandler},

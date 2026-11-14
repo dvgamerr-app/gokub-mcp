@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -20,6 +21,43 @@ type Candle struct {
 	Low       float64 `json:"low"`
 	Close     float64 `json:"close"`
 	Volume    float64 `json:"volume"`
+	Synthetic bool    `json:"synthetic,omitempty"`
+}
+
+type CandleHistoryMetadata struct {
+	LastActualCandle   int64  `json:"last_actual_closed_candle_timestamp"`
+	LastReturnedCandle int64  `json:"last_returned_candle_timestamp"`
+	SyntheticCount     int    `json:"synthetic_candles"`
+	GapPolicy          string `json:"gap_policy"`
+}
+
+func prepareClosedHistory(data *market.HistoryResponse, limit, resolution int, now int64) (*market.HistoryResponse, map[int64]bool, CandleHistoryMetadata, error) {
+	real := map[int64]bool{}
+	metadata := CandleHistoryMetadata{GapPolicy: "previous close, zero volume; synthetic candles are not trades"}
+	if data == nil {
+		return nil, real, metadata, fmt.Errorf("empty history response")
+	}
+	for _, ts := range data.Time {
+		real[ts] = true
+		if ts+int64(resolution)*60 <= now && ts > metadata.LastActualCandle {
+			metadata.LastActualCandle = ts
+		}
+	}
+	filled, err := fillHistoryGaps(data, limit, resolution, now)
+	if err != nil {
+		return nil, real, metadata, err
+	}
+	closed, err := closedHistory(filled, limit, resolution, now)
+	if err != nil {
+		return nil, real, metadata, err
+	}
+	for _, ts := range closed.Time {
+		if !real[ts] {
+			metadata.SyntheticCount++
+		}
+		metadata.LastReturnedCandle = ts
+	}
+	return closed, real, metadata, nil
 }
 
 // minIndicatorCandles covers the largest downstream requirement (calculate_ema
@@ -39,6 +77,7 @@ var validResolutions map[int]string = map[int]string{
 func NewHistoricalCandlesTool() mcp.Tool {
 	return mcp.NewTool("get_historical_candles",
 		mcp.WithDescription(`Get historical candlestick/OHLCV data for symbols with specified timeframe and limit. Supports single or multiple symbols.`),
+		mcp.WithBoolean("closed_only", mcp.Description("Return completed candles on a regular grid, filling no-trade gaps with previous close and zero volume, marked synthetic. Includes source timestamps; unavailable history still errors. Default false.")),
 		mcp.WithArray("symbols",
 			mcp.Items("string"),
 			mcp.Required(),
@@ -101,6 +140,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	now := time.Now().Unix()
+	closedOnly := utils.GetBoolArg(args, "closed_only")
 	from := now - int64(limit*resolution*60)
 
 	if len(symbols) == 1 {
@@ -117,7 +157,13 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 			return utils.ErrorResult(fmt.Sprintf("error: %v", err))
 		}
 
-		candles, err = latestHistory(candles, limit)
+		var actual map[int64]bool
+		var metadata CandleHistoryMetadata
+		if closedOnly {
+			candles, actual, metadata, err = prepareClosedHistory(candles, limit, resolution, now)
+		} else {
+			candles, err = latestHistory(candles, limit)
+		}
 		if err != nil {
 			return utils.ErrorResult(err.Error())
 		}
@@ -135,7 +181,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 				prices[i] = candles.Close[i]
 			}
 			summary := fmt.Sprintf("Retrieved %d close prices for %s (%s timeframe)", dataLen, symbol, resolutionStr)
-			return utils.ArtifactsResult(summary, map[string]any{"symbol": strings.ToLower(symbol), "prices": prices, "data_points": dataLen})
+			return utils.ArtifactsResult(summary, map[string]any{"symbol": strings.ToLower(symbol), "prices": prices, "data_points": dataLen, "history_metadata": metadata})
 		}
 
 		result := make([]*Candle, dataLen)
@@ -147,32 +193,35 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 				Low:       candles.Low[i],
 				Close:     candles.Close[i],
 				Volume:    candles.Volume[i],
+				Synthetic: closedOnly && !actual[candles.Time[i]],
 			}
 		}
 
 		var summary string
 		if format == "csv" {
 			summary = fmt.Sprintf("Retrieved %d candles for %s (%s timeframe)\n\n", dataLen, symbol, resolutionStr)
-			summary += "Timestamp,Open,High,Low,Close,Volume\n"
+			summary += "Timestamp,Open,High,Low,Close,Volume,Synthetic\n"
 			for _, candle := range result {
-				summary += fmt.Sprintf("%d,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+				summary += fmt.Sprintf("%d,%.2f,%.2f,%.2f,%.2f,%.2f,%t\n",
 					candle.Timestamp,
 					candle.Open,
 					candle.High,
 					candle.Low,
 					candle.Close,
 					candle.Volume,
+					candle.Synthetic,
 				)
 			}
 		} else {
 			summary = fmt.Sprintf("Retrieved %d candles for %s (%s timeframe)", dataLen, symbol, resolutionStr)
 		}
 
-		return utils.ArtifactsResult(summary, map[string]any{"candles": result})
+		return utils.ArtifactsResult(summary, map[string]any{"candles": result, "history_metadata": metadata})
 	}
 
 	pricesMap := make(map[string][]float64)
 	candlesMap := make(map[string][]*Candle)
+	metadataMap := make(map[string]CandleHistoryMetadata)
 
 	for _, symbol := range symbols {
 		candles, err := market.GetHistory(market.HistoryRequest{
@@ -187,10 +236,17 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 			continue
 		}
 
-		candles, err = latestHistory(candles, limit)
+		var actual map[int64]bool
+		var metadata CandleHistoryMetadata
+		if closedOnly {
+			candles, actual, metadata, err = prepareClosedHistory(candles, limit, resolution, now)
+		} else {
+			candles, err = latestHistory(candles, limit)
+		}
 		if err != nil {
 			return utils.ErrorResult(err.Error())
 		}
+		metadataMap[strings.ToLower(symbol)] = metadata
 
 		if len(candles.Close) == 0 {
 			log.Warn().Str("symbol", symbol).Msg("No candle data found")
@@ -215,6 +271,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 					Low:       candles.Low[i],
 					Close:     candles.Close[i],
 					Volume:    candles.Volume[i],
+					Synthetic: closedOnly && !actual[candles.Time[i]],
 				}
 			}
 			candlesMap[strings.ToLower(symbol)] = result
@@ -230,9 +287,10 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 		summary = fmt.Sprintf("Retrieved close prices for %d symbols (Timeframe: %s, Limit: %d)", len(pricesMap), resolutionStr, limit)
 		resultData = map[string]any{
-			"timeframe":   resolutionStr,
-			"data_points": limit,
-			"symbols":     pricesMap,
+			"timeframe":        resolutionStr,
+			"data_points":      limit,
+			"symbols":          pricesMap,
+			"history_metadata": metadataMap,
 		}
 	} else {
 		if len(candlesMap) == 0 {
@@ -242,15 +300,16 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 		if format == "csv" {
 			summary = fmt.Sprintf("Retrieved %d symbols (%s timeframe)\n\n", len(candlesMap), resolutionStr)
 			for symbol, candles := range candlesMap {
-				summary += fmt.Sprintf("%s - Timestamp,Open,High,Low,Close,Volume\n", strings.ToUpper(symbol))
+				summary += fmt.Sprintf("%s - Timestamp,Open,High,Low,Close,Volume,Synthetic\n", strings.ToUpper(symbol))
 				for _, candle := range candles {
-					summary += fmt.Sprintf("%d,%.2f,%.2f,%.2f,%.2f,%.2f\n",
+					summary += fmt.Sprintf("%d,%.2f,%.2f,%.2f,%.2f,%.2f,%t\n",
 						candle.Timestamp,
 						candle.Open,
 						candle.High,
 						candle.Low,
 						candle.Close,
 						candle.Volume,
+						candle.Synthetic,
 					)
 				}
 				summary += "\n"
@@ -260,8 +319,9 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 
 		resultData = map[string]any{
-			"timeframe": resolutionStr,
-			"symbols":   candlesMap,
+			"timeframe":        resolutionStr,
+			"symbols":          candlesMap,
+			"history_metadata": metadataMap,
 		}
 	}
 
@@ -281,8 +341,17 @@ func latestHistory(data *market.HistoryResponse, limit int) (*market.HistoryResp
 		indices[i] = i
 	}
 	sort.SliceStable(indices, func(i, j int) bool { return data.Time[indices[i]] < data.Time[indices[j]] })
-	if n > limit {
-		indices = indices[n-limit:]
+	unique := make([]int, 0, len(indices))
+	for _, index := range indices {
+		if len(unique) > 0 && data.Time[unique[len(unique)-1]] == data.Time[index] {
+			unique[len(unique)-1] = index
+		} else {
+			unique = append(unique, index)
+		}
+	}
+	indices = unique
+	if len(indices) > limit {
+		indices = indices[len(indices)-limit:]
 	}
 	result := &market.HistoryResponse{Status: data.Status}
 	for _, i := range indices {
@@ -294,4 +363,91 @@ func latestHistory(data *market.HistoryResponse, limit int) (*market.HistoryResp
 		result.Volume = append(result.Volume, data.Volume[i])
 	}
 	return result, nil
+}
+
+func closedHistory(data *market.HistoryResponse, limit, resolution int, now int64) (*market.HistoryResponse, error) {
+	if data == nil || resolution <= 0 || limit <= 0 {
+		return nil, fmt.Errorf("invalid closed history request")
+	}
+	ordered, err := latestHistory(data, max(1, len(data.Time)))
+	if err != nil {
+		return nil, err
+	}
+	interval := int64(resolution) * 60
+	end := 0
+	for end < len(ordered.Time) && ordered.Time[end]+interval <= now {
+		end++
+	}
+	if end == 0 || now-(ordered.Time[end-1]+interval) >= interval*2 {
+		return nil, fmt.Errorf("no recent completed candles for %d-minute timeframe", resolution)
+	}
+	ordered.Time = ordered.Time[:end]
+	ordered.Open = ordered.Open[:end]
+	ordered.High = ordered.High[:end]
+	ordered.Low = ordered.Low[:end]
+	ordered.Close = ordered.Close[:end]
+	ordered.Volume = ordered.Volume[:end]
+	return latestHistory(ordered, limit)
+}
+
+func fillHistoryGaps(data *market.HistoryResponse, limit, resolution int, now int64) (*market.HistoryResponse, error) {
+	if data == nil || limit <= 0 || resolution <= 0 {
+		return nil, fmt.Errorf("invalid history gap request")
+	}
+	ordered, err := latestHistory(data, max(1, len(data.Time)))
+	if err != nil {
+		return nil, err
+	}
+	interval := int64(resolution) * 60
+	result := &market.HistoryResponse{Status: ordered.Status}
+	appendCandle := func(ts int64, open, high, low, close, volume float64) {
+		result.Time = append(result.Time, ts)
+		result.Open = append(result.Open, open)
+		result.High = append(result.High, high)
+		result.Low = append(result.Low, low)
+		result.Close = append(result.Close, close)
+		result.Volume = append(result.Volume, volume)
+	}
+	for i, ts := range ordered.Time {
+		if ts+interval > now {
+			continue
+		}
+		for _, price := range []float64{ordered.Open[i], ordered.High[i], ordered.Low[i], ordered.Close[i]} {
+			if price <= 0 || math.IsNaN(price) || math.IsInf(price, 0) {
+				return nil, fmt.Errorf("invalid source candle price")
+			}
+		}
+		if ordered.Volume[i] < 0 || math.IsNaN(ordered.Volume[i]) || math.IsInf(ordered.Volume[i], 0) {
+			return nil, fmt.Errorf("invalid source candle volume")
+		}
+		if len(result.Time) > 0 {
+			last := result.Time[len(result.Time)-1]
+			if ts == last {
+				return nil, fmt.Errorf("duplicate source candle timestamp")
+			}
+			if (ts-last)%interval != 0 {
+				return nil, fmt.Errorf("source candles do not align with requested timeframe")
+			}
+			if (ts-last)/interval > int64(limit) {
+				return nil, fmt.Errorf("source candle gap exceeds requested history window")
+			}
+			for next := last + interval; next < ts; next += interval {
+				close := result.Close[len(result.Close)-1]
+				appendCandle(next, close, close, close, close, 0)
+			}
+		}
+		appendCandle(ts, ordered.Open[i], ordered.High[i], ordered.Low[i], ordered.Close[i], ordered.Volume[i])
+	}
+	if len(result.Time) == 0 {
+		return nil, fmt.Errorf("no completed source candles")
+	}
+	last := result.Time[len(result.Time)-1]
+	if now-(last+interval) >= int64(limit)*interval {
+		return nil, fmt.Errorf("source candles are older than requested history window")
+	}
+	for next := last + interval; next+interval <= now; next += interval {
+		close := result.Close[len(result.Close)-1]
+		appendCandle(next, close, close, close, close, 0)
+	}
+	return latestHistory(result, limit)
 }
