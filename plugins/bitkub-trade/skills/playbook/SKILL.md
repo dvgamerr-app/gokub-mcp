@@ -4,7 +4,7 @@ description: >-
   Playbook for swing-trading the long side on Bitkub (THB pairs) using the gokub-mcp tools. Use when asked to find a trade, screen coins, evaluate an entry, size a position, place/manage an order, or review trading performance on Bitkub. Encodes the risk rules, the screen→regime→signal→size→validate→place→manage→log flow, and Bitkub-specific constraints (no native stop/OCO).
 license: MIT
 author: Kananek T.
-version: 0.7.1
+version: 0.9.0
 category: trading
 ---
 
@@ -18,8 +18,8 @@ validation gate.
 
 Use `analyze_market_trades(trend_resolution=240, entry_resolution=15,
 target_net_percent=2, risk_percent=2)` for a full scan. It analyzes every liquid
-exchange-only THB pair, rejects broker/frozen pairs, checks completed fresh candles,
-relative strength, EMA, ATR, signals, open orders and journal positions, then returns
+exchange-only THB pair, rejects broker/frozen pairs, checks completed fresh candles at one cutoff,
+relative strength against BTC, EMA, daily ATR, signals, open orders and journal positions, then returns
 fee-aware plans and validation results. User-specified timeframes override these
 defaults. Do not write JS, shell scripts, or custom API calls to duplicate this flow.
 
@@ -33,6 +33,21 @@ Use the existing MCP tools directly for focused follow-ups:
   Pass numeric prices directly.
 - Read `complete`, `analysis_error_count`, `screen_stats`, and each result's `error`;
   report unavailable data separately from a failed trading condition.
+- Use `analyze_chart(candles, resolution, as_of)` for closed-candle MACD12/26/9,
+  Bollinger20/2, Supertrend10/3, anchored VWAP and existing EMA/RSI/ATR/DMI readings.
+  Native analysis includes entry-timeframe readings as `chart`. They are diagnostics,
+  not extra votes or automatic live-entry signals. Inspect notes, synthetic counts
+  and VWAP availability; match history, anchors and initialization before claiming
+  TradingView numerical parity. Never use CAPM as a short-term chart forecast.
+- For historical signal evidence, use `backtest_signals` with completed timestamped
+  candles, resolution and a fixed `as_of`. Inspect costs, fold results and trade count.
+  Strategies include breakout, pullback, macd_cross, supertrend_flip,
+  bollinger_breakout and ema_crossover. Inspect net returns/R, profit factor,
+  approximate intervals and cost sensitivity rather than win rate alone. Folds
+  are chronological fixed-rule evaluations, not parameter-fit OOS evidence.
+  If `complete=false` or `unresolved_positions>0`, report the missing outcomes.
+  This tests entry signals only, not the full multi-symbol workflow. Never interpret
+  a regime score as a win probability or claim accuracy without measured evidence.
 - `can_trade=true` is an analysis result, not an executed or guaranteed trade.
   Inspect the plan and current state before placing an authorized order using the
   existing order tools. Keep the client-side stop requirement.
@@ -64,9 +79,19 @@ The analysis tools (`check_market_regime`, `calculate_atr`, `calculate_rsi`,
 take **arrays** (prices or OHLCV candles), not a symbol. So always:
 
 1. `get_historical_candles(symbols=[symbol], format="close", closed_only=true)` returns `result.prices[]` for a single symbol; multi-symbol output uses `result.symbols[symbol]`.
-2. Pass numeric price arrays directly into price-based tools (EMA, RSI, ROC, regime), or use `result.candles` for OHLCV tools. Do not stringify prices or candle objects.
+2. Pass numeric price arrays directly into price-based tools (EMA, RSI, ROC), or use `result.candles` for OHLCV tools. Do not stringify prices or candle objects.
 
-Use 240 minutes (4H) for regime, relative strength and volatility fit, and 15 minutes
+Use completed OHLCV candles for regime so Wilder ADX is available. Price-only
+regime input has `adx_available=false`; do not treat zero as a measured ADX.
+For OHLC input, regime requires ADX ≥25, matching +DI/-DI and net price direction.
+A high count of rising candles cannot bypass a weak ADX. Use 600–1000 trend bars
+when possible to reduce EMA200 initialization sensitivity; native scans request 1000.
+Malformed candle rows and unavailable exit data now error; do not report them as
+failed signals or safe holds. Historical candles default to `closed_only=true`.
+Preserve numeric precision until exchange rounding.
+
+Use 240 minutes (4H) for regime and relative strength, **daily (1440) candles for
+the 2–6% ATR filter**, and 15 minutes
 for entry signals and stops, unless the user specifies other timeframes.
 
 ## The flow
@@ -95,15 +120,19 @@ Only after all urgent exits are handled, proceed to step 1 for new entries.
 1. **Shortlist** — `get_market_screener` (volume, spread, depth) or `get_market_overview`
    for context. Scan **all THB pairs**; keep 5–10 most liquid. Never restrict to a single
    symbol unless the user explicitly names one.
-2. **Regime filter** — `get_historical_candles` (4H, closed only) → `check_market_regime(prices)`.
+2. **Regime filter** — `get_historical_candles` (4H, closed only) → `check_market_regime(candles=...)`.
    Trade only if UPTREND. (Confirm with `calculate_ema`: close > EMA200, EMA50 > EMA200.)
 3. **Relative strength** — `calculate_relative_strength_rank(symbols={sym: prices, ...},
-   benchmark=btc_thb)`. `symbols` is an **object** of `symbol: prices[]` (1D close prices
+   benchmark=btc_thb)`. `symbols` is an **object** of `symbol: prices[]` (4H close prices
    from `get_historical_candles(..., resolution=240, format="close", closed_only=true)` per symbol), not a plain array of
-   symbol names. Keep the top names (`top3`).
-4. **Volatility fit** — `calculate_atr(candles)` → keep ATR% in a sane zone (~2–6%/day).
+   symbol names. Use a common `as_of` cutoff and align the arrays. Benchmark data is
+   required. Keep top-three names that also have `outperforms_benchmark=true`; BTC
+   itself can pass as the benchmark. `top3` alone does not establish outperformance.
+4. **Volatility fit** — fetch completed `resolution=1440` candles, then
+   `calculate_atr(candles, period=14)` → keep daily ATR% in the 2–6% zone. Native
+   analysis exposes this as `daily_atr`; `trend_atr` is not the daily gate input.
 5. **Entry signal** (entry timeframe) — `detect_breakout_signal` (close above 20-bar high
-   + volume ≥1.5×) or `detect_pullback_signal` (pullback to EMA20 + RSI bounce 40–50; also
+   + volume ≥1.5×) or `detect_pullback_signal` (preceding decline toward EMA20 + bullish price recovery + rising RSI in 40–50; also
    reports `volume_ratio` — use it for step 7's `volume_ok`, pullback has no built-in
    volume gate the way breakout does).
 6. **Size** — `get_wallet_balance` (use `available`, not `total_thb` — that includes funds

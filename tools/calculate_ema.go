@@ -10,12 +10,14 @@ import (
 )
 
 type EMAResult struct {
-	Period     int       `json:"period"`
-	DataPoints int       `json:"data_points"`
-	EMA        []float64 `json:"ema"`
-	Current    float64   `json:"current_ema"`
-	Previous   float64   `json:"previous_ema"`
-	Trend      string    `json:"trend"`
+	Period         int       `json:"period"`
+	DataPoints     int       `json:"data_points"`
+	EMA            []float64 `json:"ema"`
+	Current        float64   `json:"current_ema"`
+	Previous       float64   `json:"previous_ema"`
+	Trend          string    `json:"trend"`
+	TrendAvailable bool      `json:"trend_available"`
+	ValidFromIndex int       `json:"valid_from_index"`
 }
 
 func NewCalculateEMATool() mcp.Tool {
@@ -58,7 +60,7 @@ func CalculateEMAHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 
 	current := emaValues[len(emaValues)-1]
 	previous := current
-	if len(emaValues) > 1 {
+	if len(prices) > period {
 		previous = emaValues[len(emaValues)-2]
 	}
 	trend := "neutral"
@@ -69,16 +71,18 @@ func CalculateEMAHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	}
 
 	result := &EMAResult{
-		Period:     period,
-		DataPoints: len(prices),
-		EMA:        emaValues,
-		Current:    utils.Round(current, 2),
-		Previous:   utils.Round(previous, 2),
-		Trend:      trend,
+		Period:         period,
+		DataPoints:     len(prices),
+		EMA:            emaValues,
+		ValidFromIndex: period - 1,
+		TrendAvailable: len(prices) > period,
+		Current:        current,
+		Previous:       previous,
+		Trend:          trend,
 	}
 
 	summary := fmt.Sprintf("EMA(%d) calculated from %d data points\n", period, len(prices))
-	summary += fmt.Sprintf("Current: %.2f | Previous: %.2f | Trend: %s",
+	summary += fmt.Sprintf("Current: %.10g | Previous: %.10g | Trend: %s",
 		result.Current, result.Previous, result.Trend)
 
 	return utils.ArtifactsResult(summary, result)

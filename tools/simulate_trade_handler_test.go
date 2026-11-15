@@ -58,3 +58,15 @@ func TestSimulateTradeHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestSimulateTradePreservesSubCentPrices(t *testing.T) {
+	out, err := analysisCall[SimulateTradeOutput](context.Background(), SimulateTradeHandler, map[string]any{
+		"entry": .004, "stop": .0038, "target": .0044, "qty": 100000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Entry != .004 || out.Stop != .0038 || out.Target != .0044 {
+		t.Fatalf("price precision lost: %+v", out)
+	}
+}

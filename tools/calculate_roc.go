@@ -61,12 +61,12 @@ func CalculateROCHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		Period:     period,
 		DataPoints: len(prices),
 		ROC:        utils.Round(roc, 2),
-		PriceNow:   utils.Round(priceNow, 2),
-		PriceThen:  utils.Round(priceThen, 2),
+		PriceNow:   priceNow,
+		PriceThen:  priceThen,
 	}
 
 	summary := fmt.Sprintf("ROC(%d) calculated from %d data points\n", period, len(prices))
-	summary += fmt.Sprintf("Price Now: %.2f | Price %d periods ago: %.2f | ROC: %.2f%%",
+	summary += fmt.Sprintf("Price Now: %.10g | Price %d periods ago: %.10g | ROC: %.10g%%",
 		result.PriceNow, period, result.PriceThen, result.ROC)
 
 	return utils.ArtifactsResult(summary, result)

@@ -1,10 +1,23 @@
 package tools
 
 import (
+	"context"
 	"github.com/dvgamerr-app/go-bitkub/market"
+	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"reflect"
 	"testing"
 )
+
+func TestHistoricalCandlesRejectsInvalidCutoff(t *testing.T) {
+	for _, cutoff := range []float64{0, 1.5, 1e15} {
+		_, err := HistoricalCandlesHandler(context.Background(), mcp.CallToolRequest{Params: mcp.CallToolParams{Arguments: map[string]any{
+			"symbols": []any{"btc_thb"}, "as_of": cutoff,
+		}}})
+		if err == nil {
+			t.Fatal("invalid cutoff must fail before requesting history")
+		}
+	}
+}
 
 func TestLatestHistory(t *testing.T) {
 	for _, tc := range []struct {
@@ -21,7 +34,7 @@ func TestLatestHistory(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			data := &market.HistoryResponse{Time: tc.times}
 			for _, ts := range tc.times {
-				v := float64(ts)
+				v := 100 + float64(ts)
 				data.Open = append(data.Open, v)
 				data.High = append(data.High, v+1)
 				data.Low = append(data.Low, v-1)
@@ -36,7 +49,7 @@ func TestLatestHistory(t *testing.T) {
 				t.Fatalf("timestamps=%v, want %v", result.Time, tc.want)
 			}
 			for i, ts := range result.Time {
-				v := float64(ts)
+				v := 100 + float64(ts)
 				if result.Open[i] != v || result.High[i] != v+1 || result.Low[i] != v-1 || result.Close[i] != v || result.Volume[i] != v*10 {
 					t.Fatal("OHLCV alignment lost")
 				}

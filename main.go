@@ -64,6 +64,7 @@ func toolRegistrations() []toolRegistration {
 		{tools.NewDetectBreakoutSignalTool(), tools.DetectBreakoutSignalHandler},
 		{tools.NewDetectPullbackSignalTool(), tools.DetectPullbackSignalHandler},
 		{tools.NewCheckMarketRegimeTool(), tools.CheckMarketRegimeHandler},
+		{tools.NewAnalyzeChartTool(), tools.AnalyzeChartHandler},
 		{tools.NewCalculateCAPMTool(), tools.CalculateCAPMHandler},
 		{tools.NewSymbolRulesTool(), tools.SymbolRulesHandler},
 		{tools.NewRoundToExchangeRulesTool(), tools.RoundToExchangeRulesHandler},
@@ -82,6 +83,7 @@ func toolRegistrations() []toolRegistration {
 		{tools.NewGetTradeHistoryTool(), tools.GetTradeHistoryHandler},
 		{tools.NewGetMarketOverviewTool(), tools.GetMarketOverviewHandler},
 		{tools.NewSimulateTradeTool(), tools.SimulateTradeHandler},
+		{tools.NewBacktestSignalsTool(), tools.BacktestSignalsHandler},
 		{tools.NewPnLWithFeesTool(), tools.PnLWithFeesHandler},
 	}
 }

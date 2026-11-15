@@ -77,7 +77,8 @@ var validResolutions map[int]string = map[int]string{
 func NewHistoricalCandlesTool() mcp.Tool {
 	return mcp.NewTool("get_historical_candles",
 		mcp.WithDescription(`Get historical candlestick/OHLCV data for symbols with specified timeframe and limit. Supports single or multiple symbols.`),
-		mcp.WithBoolean("closed_only", mcp.Description("Return completed candles on a regular grid, filling no-trade gaps with previous close and zero volume, marked synthetic. Includes source timestamps; unavailable history still errors. Default false.")),
+		mcp.WithBoolean("closed_only", mcp.Description("Return completed candles on a regular grid, filling no-trade gaps with previous close and zero volume, marked synthetic. Includes source timestamps; unavailable history still errors. Default true. Use false explicitly for forming candles.")),
+		mcp.WithNumber("as_of", mcp.Description("Optional Unix timestamp in seconds; fixed cutoff for aligned historical analysis, never in the future.")),
 		mcp.WithArray("symbols",
 			mcp.Items("string"),
 			mcp.Required(),
@@ -103,14 +104,14 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	symbolsRaw, ok := args["symbols"].([]any)
-	if !ok {
-		return utils.ErrorResult("symbols must be an array")
+	if !ok || len(symbolsRaw) == 0 {
+		return utils.ErrorResult("symbols must be a non-empty array")
 	}
 
 	symbols := make([]string, len(symbolsRaw))
 	for i, s := range symbolsRaw {
-		if str, ok := s.(string); ok {
-			symbols[i] = strings.ToUpper(str)
+		if str, ok := s.(string); ok && strings.TrimSpace(str) != "" {
+			symbols[i] = strings.ToUpper(strings.TrimSpace(str))
 		} else {
 			return utils.ErrorResult("symbols array must contain strings only")
 		}
@@ -140,8 +141,15 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	now := time.Now().Unix()
-	closedOnly := utils.GetBoolArg(args, "closed_only")
-	from := now - int64(limit*resolution*60)
+	if value, exists := args["as_of"]; exists {
+		cutoff, ok := candleNumber(value)
+		if !ok || cutoff <= 0 || cutoff > float64(now) || cutoff != math.Trunc(cutoff) {
+			return utils.ErrorResult("as_of must be positive integer Unix seconds, not in the future")
+		}
+		now = int64(cutoff)
+	}
+	closedOnly := utils.GetBoolArg(args, "closed_only", true)
+	from := now - int64((limit+1)*resolution*60)
 
 	if len(symbols) == 1 {
 		symbol := symbols[0]
@@ -202,7 +210,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 			summary = fmt.Sprintf("Retrieved %d candles for %s (%s timeframe)\n\n", dataLen, symbol, resolutionStr)
 			summary += "Timestamp,Open,High,Low,Close,Volume,Synthetic\n"
 			for _, candle := range result {
-				summary += fmt.Sprintf("%d,%.2f,%.2f,%.2f,%.2f,%.2f,%t\n",
+				summary += fmt.Sprintf("%d,%.10g,%.10g,%.10g,%.10g,%.10g,%t\n",
 					candle.Timestamp,
 					candle.Open,
 					candle.High,
@@ -233,7 +241,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 
 		if err != nil {
 			log.Warn().Err(err).Str("symbol", symbol).Msg("Failed to get historical candles")
-			continue
+			return utils.ErrorResult(fmt.Sprintf("%s history unavailable: %v", symbol, err))
 		}
 
 		var actual map[int64]bool
@@ -250,7 +258,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 
 		if len(candles.Close) == 0 {
 			log.Warn().Str("symbol", symbol).Msg("No candle data found")
-			continue
+			return utils.ErrorResult("no candle data: " + symbol)
 		}
 
 		dataLen := min(limit, len(candles.Close))
@@ -302,7 +310,7 @@ func HistoricalCandlesHandler(ctx context.Context, request mcp.CallToolRequest) 
 			for symbol, candles := range candlesMap {
 				summary += fmt.Sprintf("%s - Timestamp,Open,High,Low,Close,Volume,Synthetic\n", strings.ToUpper(symbol))
 				for _, candle := range candles {
-					summary += fmt.Sprintf("%d,%.2f,%.2f,%.2f,%.2f,%.2f,%t\n",
+					summary += fmt.Sprintf("%d,%.10g,%.10g,%.10g,%.10g,%.10g,%t\n",
 						candle.Timestamp,
 						candle.Open,
 						candle.High,
@@ -355,6 +363,13 @@ func latestHistory(data *market.HistoryResponse, limit int) (*market.HistoryResp
 	}
 	result := &market.HistoryResponse{Status: data.Status}
 	for _, i := range indices {
+		bar := Candle{Open: data.Open[i], High: data.High[i], Low: data.Low[i], Close: data.Close[i], Volume: data.Volume[i]}
+		if data.Time[i] < 0 {
+			return nil, fmt.Errorf("invalid source timestamp")
+		}
+		if err := validateCandle(bar); err != nil {
+			return nil, err
+		}
 		result.Time = append(result.Time, data.Time[i])
 		result.Open = append(result.Open, data.Open[i])
 		result.High = append(result.High, data.High[i])

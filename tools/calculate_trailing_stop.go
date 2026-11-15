@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
+	"math"
 
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 )
@@ -20,10 +21,10 @@ type TrailingStopOutput struct {
 func computeTrailingStop(current, atr, multiplier, entry float64) TrailingStopOutput {
 	stop := current - multiplier*atr
 	out := TrailingStopOutput{
-		ATR:          utils.Round(atr, 2),
-		CurrentPrice: utils.Round(current, 2),
-		TrailingStop: utils.Round(stop, 2),
-		DistancePct:  utils.Round((current-stop)/current*100, 2),
+		ATR:          atr,
+		CurrentPrice: current,
+		TrailingStop: stop,
+		DistancePct:  (current - stop) / current * 100,
 	}
 	switch {
 	case entry <= 0:
@@ -77,11 +78,17 @@ func CalculateTrailingStopHandler(ctx context.Context, request mcp.CallToolReque
 	current := utils.GetFloat64Arg(args, "current_price")
 	entry := utils.GetFloat64Arg(args, "entry")
 
+	if multiplier <= 0 || math.IsNaN(multiplier) || math.IsInf(multiplier, 0) || math.IsNaN(current) || math.IsInf(current, 0) || current < 0 || math.IsNaN(entry) || math.IsInf(entry, 0) || entry < 0 {
+		return utils.ErrorResult("prices must be finite and non-negative; multiplier must be positive")
+	}
 	if period < 1 {
 		return utils.ErrorResult("period must be greater than 0")
 	}
 
-	candles := parseOHLCV(raw)
+	candles, err := parseOHLCV(raw)
+	if err != nil {
+		return utils.ErrorResult(err.Error())
+	}
 	if len(candles) < period+1 {
 		return utils.ErrorResult(fmt.Sprintf("not enough data: need at least %d candles", period+1))
 	}
@@ -93,7 +100,7 @@ func CalculateTrailingStopHandler(ctx context.Context, request mcp.CallToolReque
 
 	out := computeTrailingStop(current, atr, multiplier, entry)
 
-	return utils.ArtifactsResult(fmt.Sprintf(`🪜 Trailing Stop: %.2f (ATR %.2f ×%.1f) | price %.2f | distance %.2f%% | %s`,
+	return utils.ArtifactsResult(fmt.Sprintf(`🪜 Trailing Stop: %.10g (ATR %.10g ×%.1f) | price %.10g | distance %.10g%% | %s`,
 		out.TrailingStop, out.ATR, multiplier, out.CurrentPrice, out.DistancePct, out.Recommendation,
 	), out)
 }

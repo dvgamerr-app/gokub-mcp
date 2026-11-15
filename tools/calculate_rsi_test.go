@@ -95,3 +95,13 @@ func BenchmarkCalculateRSI(b *testing.B) {
 		calculateRSI(prices, 14)
 	}
 }
+
+func TestCalculateRSIFlatPricesAreNeutral(t *testing.T) {
+	out, err := analysisCall[RSIResult](context.Background(), CalculateRSIHandler, map[string]any{"period": 2, "prices": []float64{100, 100, 100, 100}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.RSI != 50 || out.Signal != "neutral" {
+		t.Fatalf("flat RSI: %+v", out)
+	}
+}

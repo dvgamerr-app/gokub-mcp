@@ -52,15 +52,10 @@ func TestCheckExitSignalsHandler(t *testing.T) {
 		}
 	})
 
-	t.Run("not enough candles → no exit, detail set", func(t *testing.T) {
-		out, err := callExitSignals(t, []any{
-			map[string]any{"open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0, "volume": 500.0},
-		}, 20)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if out.ShouldExit {
-			t.Error("should_exit must be false when not enough candles")
+	t.Run("not enough candles returns an error", func(t *testing.T) {
+		_, err := callExitSignals(t, []any{map[string]any{"open": 100.0, "high": 102.0, "low": 99.0, "close": 101.0, "volume": 500.0}}, 20)
+		if err == nil {
+			t.Fatal("missing data must not return a no-exit decision")
 		}
 	})
 

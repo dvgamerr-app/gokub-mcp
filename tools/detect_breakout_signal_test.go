@@ -80,3 +80,20 @@ func TestDetectBreakoutSignalHandler(t *testing.T) {
 		}
 	})
 }
+
+func TestBreakoutPreservesSubCentPrices(t *testing.T) {
+	raw := breakoutCandles(1000, 105, 2000)
+	for _, value := range raw {
+		row := value.(map[string]any)
+		for _, key := range []string{"high", "low", "close"} {
+			row[key] = row[key].(float64) / 100000
+		}
+	}
+	out, err := callBreakout(t, raw, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Signal != "BREAKOUT_BUY" || out.SuggestedStop <= 0 || out.SuggestedStop >= out.SuggestedEntry || out.CurrentPrice != .00105 {
+		t.Fatalf("precision lost: %+v", out)
+	}
+}

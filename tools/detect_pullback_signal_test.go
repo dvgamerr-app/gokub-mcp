@@ -29,7 +29,7 @@ func TestDetectPullbackSignalHandler(t *testing.T) {
 	t.Run("not enough data", func(t *testing.T) {
 		candles := make([]any, 10)
 		for i := range candles {
-			candles[i] = map[string]any{"high": 100.0 + float64(i), "low": 90.0 + float64(i), "close": 95.0 + float64(i)}
+			candles[i] = map[string]any{"high": 100.0 + float64(i), "low": 90.0 + float64(i), "close": 95.0 + float64(i), "open": 95.0 + float64(i), "volume": 100.0}
 		}
 		_, err := callPullback(t, candles)
 		if err == nil {
@@ -43,7 +43,7 @@ func TestDetectPullbackSignalHandler(t *testing.T) {
 		candles := make([]any, 30)
 		for i := range candles {
 			p := 100.0 + float64(i)
-			candles[i] = map[string]any{"high": p + 1, "low": p - 1, "close": p}
+			candles[i] = map[string]any{"high": p + 1, "low": p - 1, "close": p, "open": p, "volume": 100.0}
 		}
 		out, err := callPullback(t, candles)
 		if err != nil {
@@ -60,17 +60,17 @@ func TestDetectPullbackSignalHandler(t *testing.T) {
 		candles := make([]any, 35)
 		for i := 0; i < 20; i++ {
 			p := 100.0 + float64(i)*0.5
-			candles[i] = map[string]any{"high": p + 0.5, "low": p - 0.5, "close": p, "open": p - 0.2}
+			candles[i] = map[string]any{"high": p + 0.5, "low": p - 0.5, "close": p, "open": p - 0.2, "volume": 100.0}
 		}
 		// Pull back toward EMA20 (~108): bearish candles closing in lower half
 		for i := 20; i < 34; i++ {
 			p := 110.0 - float64(i-20)*0.8
 			candles[i] = map[string]any{
-				"high": p + 0.5, "low": p - 1.5, "close": p - 1.0, "open": p,
+				"high": p + 0.5, "low": p - 1.5, "close": p - 1.0, "open": p, "volume": 100.0,
 			}
 		}
 		// Reversal bar: close in upper 70% of range, high near EMA, prev bar bearish
-		candles[34] = map[string]any{"high": 110.0, "low": 107.0, "close": 109.5, "open": 107.5}
+		candles[34] = map[string]any{"high": 110.0, "low": 107.0, "close": 109.5, "open": 107.5, "volume": 200.0}
 
 		out, err := callPullback(t, candles)
 		if err != nil {
@@ -84,4 +84,31 @@ func TestDetectPullbackSignalHandler(t *testing.T) {
 			t.Logf("price_to_ema_pct=%.2f%% (want within ±10%% of EMA for pullback scenario)", out.PriceToEMA)
 		}
 	})
+}
+
+func TestPullbackRequiresPriceAndRSIRecovery(t *testing.T) {
+	for _, recover := range []bool{true, false} {
+		raw := make([]any, 34)
+		for i := 0; i < 30; i++ {
+			p := 100.0 + float64(i%2)
+			raw[i] = map[string]any{"open": p - .2, "high": p + .3, "low": p - .5, "close": p, "volume": 100.0}
+		}
+		for i := 30; i < 33; i++ {
+			p := 100.0 - float64(i-30)
+			raw[i] = map[string]any{"open": p + .6, "high": p + .8, "low": p - .2, "close": p, "volume": 100.0}
+		}
+		raw[33] = map[string]any{"open": 98.1, "high": 99.1, "low": 97.8, "close": 99.0, "volume": 200.0}
+		want := "PULLBACK_BUY"
+		if !recover {
+			raw[33] = map[string]any{"open": 97.8, "high": 98.0, "low": 97.6, "close": 97.9, "volume": 200.0}
+			want = "NO_SIGNAL"
+		}
+		out, err := callPullback(t, raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if out.Signal != want {
+			t.Fatalf("recover=%v signal=%s want=%s RSI=%v", recover, out.Signal, want, out.RSI)
+		}
+	}
 }

@@ -270,9 +270,12 @@ exclude forming candles and fill no-trade gaps with the previous close and zero
 volume. Filled bars carry `synthetic: true` (also a CSV column); `history_metadata`
 records the last actual candle and filled count. Duplicate timestamps keep the last
 API update without adding volumes. The analyzer blocks entry on zero-volume bars;
-unavailable/out-of-window source data still errors. Existing defaults remain unchanged.
+unavailable/out-of-window source data still errors. Completed candles are now the
+default; request `closed_only=false` explicitly for forming candles. Supply the same
+`as_of` Unix timestamp to align separate requests. Multi-symbol history fails explicitly
+if any requested symbol is unavailable.
 
-**40 tools** covering the full long-only swing-trading workflow (screen → analyze →
+**42 tools** covering the full long-only swing-trading workflow (screen → analyze →
 size → place → manage → log).
 
 <details open>
@@ -293,7 +296,7 @@ size → place → manage → log).
 <summary><b>Indicators</b> (6)</summary>
 
 `calculate_ema` · `calculate_roc` · `calculate_atr` · `calculate_rsi` ·
-`check_market_regime` · `calculate_capm`
+`check_market_regime` · `analyze_chart`
 </details>
 
 <details>
@@ -329,10 +332,86 @@ size → place → manage → log).
 </details>
 
 <details>
-<summary><b>Helpers</b> (3)</summary>
+<summary><b>Helpers</b> (5)</summary>
 
-`get_market_overview` · `simulate_trade` · `pnl_with_fees`
+`get_market_overview` · `simulate_trade` · `backtest_signals` · `pnl_with_fees` · `calculate_capm`
+
+`calculate_capm` is an assumption-based asset-pricing calculator, not a chart forecast.
 </details>
+
+### Analysis semantics and historical evaluation
+
+- Prefer completed OHLCV candles for `check_market_regime`. Wilder ADX requires
+  at least 28 candles; price-only and close-only inputs remain supported with
+  `adx_available=false`. OHLC regimes require ADX ≥25, matching +DI/-DI direction
+  and net price direction; up-bar counts cannot bypass weak ADX. The legacy
+  close-only assessment is explicitly marked `method=close_only_fallback`. Regime
+  scores are heuristic scores, not win probabilities.
+- Indicator and signal outputs preserve price precision. EMA output preserves its
+  input-aligned array; ignore warmup zeros before `valid_from_index`. It exposes
+  `trend_available`; exactly one seeded EMA has no trend.
+  Flat-price RSI is defined as 50 (neutral).
+- Malformed OHLC ranges, non-positive prices and invalid timestamps fail explicitly.
+  Timestamps are optional for existing indicator callers; when supplied they must
+  be present on every row, increasing and on a regular grid. Signal callers must
+  supply completed candles; breakout requires volume, pullback/exit require open
+  and volume. Synthetic latest bars cannot confirm entries or exit decisions.
+- Pullback requires a preceding decline, bullish price recovery and rising RSI in
+  the configured bounce zone. A candle merely closing near its high is insufficient.
+- Relative-strength ranking requires benchmark data. `top3` remains the absolute
+  ROC ranking; `relative_roc` and `outperforms_benchmark` are separate. The native
+  workflow requires both top-three rank and outperformance (the benchmark itself
+  is allowed), and uses one cutoff for all candle requests. Direct price arrays
+  must be aligned by the caller before ranking.
+- The native 2–6% volatility gate always uses **daily ATR(14)**, independent of the
+  selected trend timeframe. `daily_atr` is the gate input; `trend_atr` and
+  `entry_atr` retain their own timeframe meanings. Stale actual source candles
+  block analysis even if synthetic bars fill the grid.
+- `check_exit_signals` returns an error when data cannot support an exit decision,
+  including insufficient history and a latest bar with no actual trades.
+
+Call `backtest_signals(candles, resolution, as_of, strategy="breakout")` with
+221–10000 timestamped completed OHLCV candles. It uses 220 candles for warmup,
+then evaluates fixed rules in up to three default chronological
+folds with expanding history. Optional inputs: `folds` (1–10), `fee_percent`
+(per side, default 0.25), `slippage_percent` (per side including spread, default
+0.1), and `reward_risk` (gross distance ratio, default 2).
+
+Signals use prior candles only. Simulated entries fill at the next actual open;
+stops gap to the open, and a candle touching both stop and target counts as a stop.
+Folds close remaining positions only on an actual final bar. A no-trade tail
+leaves `unresolved_positions` and `complete=false`, without looking ahead to choose
+an earlier exit. Outputs include
+trade records, per-fold and total win rates, approximate Wilson intervals, average
+net returns/R, equal-notional profit factor, and explicitly hypothetical
+full-notional closed-trade compounded returns/drawdown. They do not measure
+intratrade or live-portfolio drawdown.
+No trades produces null rates, not evidence of accuracy. This evaluates entry
+signals only: it does not reproduce the live multi-symbol regime/ranking/ATR gate,
+portfolio sizing, exchange rounding or limit-order fills. It performs no parameter
+optimization and does not establish calibrated prediction probabilities.
+
+Supported fixed-rule experiments: `breakout`, `pullback`, `macd_cross` (12/26/9),
+`supertrend_flip` (10/3), `bollinger_breakout` (20/2), and `ema_crossover` (20/50).
+Chart crossover experiments use 1.5×ATR14 initial stops and the same costs/fill/target
+model. They do not become live-entry conditions automatically.
+
+Call `analyze_chart(candles, resolution, as_of)` with 220–10000 completed timestamped
+OHLCV bars for EMA/RSI/ATR/DMI, MACD, Bollinger Bands, Supertrend and anchored VWAP
+readings. Default VWAP anchor is the last candle's UTC midnight; optional
+`vwap_anchor` must be a covered candle-open timestamp. Uncovered anchors or no
+volume return an unavailable VWAP. A daily anchor on daily bars is not meaningful.
+Outputs disclose SMA-seeded EMA and ATR initialization differences from TradingView;
+these are standard formulas, not a claim of exact platform parity.
+
+Native trade analysis includes these entry-timeframe diagnostics as `chart`, and
+requests 1000 trend candles to reduce EMA200 seed sensitivity. Existing risk gates
+and exchange rounding remain required. The new indicators do not form an extra
+majority-vote confidence score.
+
+See [TradingView research and recorded comparison](docs/tradingview-research.md) for
+primary sources, keep/add/defer decisions, numerical conventions and a reproducible
+48-case public-market snapshot. It does not establish any universally best indicator.
 
 ## 🧠 Trading Playbook (Plugin / Skill)
 

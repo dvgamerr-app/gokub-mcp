@@ -28,9 +28,9 @@ func simulateTrade(entry, stop, target, qty, makerFee, takerFee float64) Simulat
 	win := computePnL(entry, target, qty, stop, makerFee, takerFee)
 	loss := computePnL(entry, stop, qty, stop, makerFee, takerFee)
 	return SimulateTradeOutput{
-		Entry:      utils.Round(entry, 2),
-		Stop:       utils.Round(stop, 2),
-		Target:     utils.Round(target, 2),
+		Entry:      entry,
+		Stop:       stop,
+		Target:     target,
 		Qty:        qty,
 		RRRatio:    utils.Round((target-entry)/(entry-stop), 2),
 		WinPnLTHB:  win.PnLTHB,
@@ -89,7 +89,7 @@ func SimulateTradeHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 	out := simulateTrade(entry, stop, target, qty, makerFee, takerFee)
 
-	return utils.ArtifactsResult(fmt.Sprintf(`🎲 Simulate: entry %.2f stop %.2f target %.2f | R:R %.2f | win +%.2f THB (%.2fR) / loss %.2f THB`,
+	return utils.ArtifactsResult(fmt.Sprintf(`🎲 Simulate: entry %.10g stop %.10g target %.10g | R:R %.2f | win +%.2f THB (%.2fR) / loss %.2f THB`,
 		out.Entry, out.Stop, out.Target, out.RRRatio, out.WinPnLTHB, out.WinR, out.LossPnLTHB,
 	), out)
 }

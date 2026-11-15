@@ -15,26 +15,29 @@ import (
 )
 
 type MarketTradeAnalysis struct {
-	Symbol         string                `json:"symbol"`
-	Source         string                `json:"source"`
-	Regime         *MarketRegime         `json:"regime,omitempty"`
-	TrendClosedAt  int64                 `json:"trend_closed_at,omitempty"`
-	EntryClosedAt  int64                 `json:"entry_closed_at,omitempty"`
-	TrendHistory   CandleHistoryMetadata `json:"trend_history"`
-	EntryHistory   CandleHistoryMetadata `json:"entry_history"`
-	EMA50          float64               `json:"ema50,omitempty"`
-	EMA200         float64               `json:"ema200,omitempty"`
-	EMAPass        bool                  `json:"ema_pass"`
-	TrendATR       *ATRResult            `json:"trend_atr,omitempty"`
-	EntryATR       *ATRResult            `json:"entry_atr,omitempty"`
-	Breakout       *BreakoutSignal       `json:"breakout,omitempty"`
-	Pullback       *PullbackSignal       `json:"pullback,omitempty"`
-	Gate           *ValidateSetupOutput  `json:"gate,omitempty"`
-	Plan           *NetTradePlan         `json:"plan,omitempty"`
-	OpenOrderCount int                   `json:"open_order_count"`
-	CanTrade       bool                  `json:"can_trade"`
-	Reasons        []string              `json:"reasons"`
-	Error          string                `json:"error,omitempty"`
+	Symbol               string                `json:"symbol"`
+	Source               string                `json:"source"`
+	Regime               *MarketRegime         `json:"regime,omitempty"`
+	TrendClosedAt        int64                 `json:"trend_closed_at,omitempty"`
+	EntryClosedAt        int64                 `json:"entry_closed_at,omitempty"`
+	TrendHistory         CandleHistoryMetadata `json:"trend_history"`
+	EntryHistory         CandleHistoryMetadata `json:"entry_history"`
+	EMA50                float64               `json:"ema50,omitempty"`
+	EMA200               float64               `json:"ema200,omitempty"`
+	EMAPass              bool                  `json:"ema_pass"`
+	VolatilityResolution int                   `json:"volatility_resolution"`
+	DailyATR             *ATRResult            `json:"daily_atr,omitempty"`
+	TrendATR             *ATRResult            `json:"trend_atr,omitempty"`
+	EntryATR             *ATRResult            `json:"entry_atr,omitempty"`
+	Breakout             *BreakoutSignal       `json:"breakout,omitempty"`
+	Pullback             *PullbackSignal       `json:"pullback,omitempty"`
+	Chart                *ChartAnalysis        `json:"chart,omitempty"`
+	Gate                 *ValidateSetupOutput  `json:"gate,omitempty"`
+	Plan                 *NetTradePlan         `json:"plan,omitempty"`
+	OpenOrderCount       int                   `json:"open_order_count"`
+	CanTrade             bool                  `json:"can_trade"`
+	Reasons              []string              `json:"reasons"`
+	Error                string                `json:"error,omitempty"`
 }
 
 type NetTradePlan struct {
@@ -52,7 +55,7 @@ type NetTradePlan struct {
 
 func NewAnalyzeMarketTradesTool() mcp.Tool {
 	return mcp.NewTool("analyze_market_trades",
-		mcp.WithDescription("Analyze ALL liquid exchange-only THB pairs using closed, fresh candles. Runs screening, wallet/fees, relative strength, regime/EMA, ATR, breakout/pullback, open-order checks, fee-aware sizing, net-profit targets and validation. Read-only: never places orders. Returns every pair and explicit rejection reasons; no candle arrays."),
+		mcp.WithDescription("Analyze ALL liquid exchange-only THB pairs using closed, fresh candles. Runs screening, wallet/fees, relative strength, regime/EMA, daily ATR filter, breakout/pullback, open-order checks, fee-aware sizing, net-profit targets and validation. Read-only: never places orders. Returns every pair and explicit rejection reasons; no candle arrays."),
 		mcp.WithNumber("trend_resolution", mcp.Description("Trend timeframe in minutes (default 240 = 4H)")),
 		mcp.WithNumber("entry_resolution", mcp.Description("Entry timeframe in minutes (default 15)")),
 		mcp.WithNumber("target_net_percent", mcp.Description("Net target on position value after fees and spread allowance (1-2, default 2)")),
@@ -161,10 +164,26 @@ func AnalyzeMarketTradesHandler(ctx context.Context, request mcp.CallToolRequest
 		}
 		row := &MarketTradeAnalysis{Symbol: strings.ToLower(pair.Symbol), Source: "exchange", OpenOrderCount: -1, Reasons: []string{}}
 		rows = append(rows, row)
-		if err := analyzeMarketPair(ctx, row, int(trend), int(entryTF), pricesMap); err != nil {
+		if err := analyzeMarketPair(ctx, row, int(trend), int(entryTF), now, pricesMap); err != nil {
 			row.Error = err.Error()
 			row.Reasons = append(row.Reasons, err.Error())
 		}
+	}
+	if _, ok := pricesMap["btc_thb"]; !ok {
+		benchmark, err := analysisCall[struct {
+			Prices   []float64             `json:"prices"`
+			Metadata CandleHistoryMetadata `json:"history_metadata"`
+		}](ctx, HistoricalCandlesHandler, map[string]any{"symbols": []string{"btc_thb"}, "resolution": trend, "format": "close", "limit": 240, "closed_only": true, "as_of": now})
+		if err != nil {
+			return utils.ErrorResult("BTC benchmark unavailable: " + err.Error())
+		}
+		if len(benchmark.Prices) < 15 {
+			return utils.ErrorResult("BTC benchmark has insufficient history")
+		}
+		if now-(benchmark.Metadata.LastActualCandle+int64(trend)*60) >= 2*int64(trend)*60 {
+			return utils.ErrorResult("BTC benchmark source candles are stale")
+		}
+		pricesMap["btc_thb"] = benchmark.Prices
 	}
 	rank, err := analysisCall[RSRankResult](ctx, CalculateRelativeStrengthRankHandler, map[string]any{"symbols": pricesMap, "benchmark": "btc_thb", "period": 14})
 	if err != nil {
@@ -172,7 +191,7 @@ func AnalyzeMarketTradesHandler(ctx context.Context, request mcp.CallToolRequest
 	}
 	eligible := 0
 	for i, row := range rows {
-		if row.Breakout == nil || row.Pullback == nil || row.TrendATR == nil || len(row.Reasons) > 0 {
+		if row.Breakout == nil || row.Pullback == nil || row.DailyATR == nil || len(row.Reasons) > 0 {
 			continue
 		}
 		signal := row.Pullback.Signal
@@ -202,7 +221,7 @@ func AnalyzeMarketTradesHandler(ctx context.Context, request mcp.CallToolRequest
 		if !row.EMAPass {
 			regime = "SIDEWAYS"
 		}
-		gate, err := analysisCall[ValidateSetupOutput](ctx, ValidateTradeSetupHandler, map[string]any{"balance": balance, "position_value_thb": plan.PositionValue, "regime": regime, "rs_top": slices.Contains(rank.Top3, row.Symbol), "atr_percent": row.TrendATR.ATRPercent, "has_signal": signal == "BREAKOUT_BUY" || signal == "PULLBACK_BUY", "volume_ok": volume >= 1.5})
+		gate, err := analysisCall[ValidateSetupOutput](ctx, ValidateTradeSetupHandler, map[string]any{"balance": balance, "position_value_thb": plan.PositionValue, "regime": regime, "rs_top": relativeStrengthPass(rank, row.Symbol), "atr_percent": row.DailyATR.ATRPercent, "has_signal": signal == "BREAKOUT_BUY" || signal == "PULLBACK_BUY", "volume_ok": volume >= 1.5})
 		if err != nil {
 			row.Reasons = append(row.Reasons, err.Error())
 			continue
@@ -272,15 +291,26 @@ func AnalyzeMarketTradesHandler(ctx context.Context, request mcp.CallToolRequest
 	return utils.ArtifactsResult(fmt.Sprintf("Exchange-only analysis: %d pairs, %d eligible, %d analysis errors. Trend %dm / entry %dm, net target %.2f%%. Read-only; no orders placed.", len(rows), eligible, errorCount, int(trend), int(entryTF), target), map[string]any{"as_of": now, "trend_resolution": trend, "entry_resolution": entryTF, "available_thb": balance, "fees": fees, "screen_stats": stats, "open_trades": openTrades, "relative_strength": rank, "results": rows, "results_count": len(rows), "eligible_count": eligible, "analysis_error_count": errorCount, "complete": errorCount == 0 && stats["depth_fail"] == 0})
 }
 
-func analyzeMarketPair(ctx context.Context, row *MarketTradeAnalysis, trend, entry int, pricesMap map[string]any) error {
+func analyzeMarketPair(ctx context.Context, row *MarketTradeAnalysis, trend, entry int, asOf int64, pricesMap map[string]any) error {
 	load := func(resolution int) ([]*Candle, error) {
+		limit := 240
+		if resolution == trend {
+			limit = 1000
+		}
 		out, err := analysisCall[struct {
 			Candles  []*Candle             `json:"candles"`
 			Metadata CandleHistoryMetadata `json:"history_metadata"`
-		}](ctx, HistoricalCandlesHandler, map[string]any{"symbols": []string{row.Symbol}, "resolution": resolution, "format": "ohlcv", "limit": 240, "closed_only": true})
+		}](ctx, HistoricalCandlesHandler, map[string]any{"symbols": []string{row.Symbol}, "resolution": resolution, "format": "ohlcv", "limit": limit, "closed_only": true, "as_of": asOf})
+		if err != nil {
+			return nil, err
+		}
+		interval := int64(resolution) * 60
+		if len(out.Candles) == 0 || asOf-(out.Metadata.LastActualCandle+interval) >= 2*interval {
+			return nil, fmt.Errorf("%d-minute source candles are stale; synthetic bars cannot establish freshness", resolution)
+		}
 		if resolution == trend {
 			row.TrendHistory = out.Metadata
-		} else {
+		} else if resolution == entry {
 			row.EntryHistory = out.Metadata
 		}
 		return out.Candles, err
@@ -297,7 +327,7 @@ func analyzeMarketPair(ctx context.Context, row *MarketTradeAnalysis, trend, ent
 		return fmt.Errorf("need at least 200 completed trend candles")
 	}
 	row.TrendClosedAt = h4[len(h4)-1].Timestamp + int64(trend)*60
-	regime, err := analysisCall[MarketRegime](ctx, CheckMarketRegimeHandler, map[string]any{"prices": prices, "lookback": 20})
+	regime, err := analysisCall[MarketRegime](ctx, CheckMarketRegimeHandler, map[string]any{"candles": h4, "lookback": 20})
 	if err != nil {
 		return err
 	}
@@ -313,11 +343,33 @@ func analyzeMarketPair(ctx context.Context, row *MarketTradeAnalysis, trend, ent
 		return err
 	}
 	row.TrendATR = &atr
+	row.DailyATR = &atr
+	row.VolatilityResolution = 1440
+	if trend != 1440 {
+		daily, err := load(1440)
+		if err != nil {
+			return err
+		}
+		dailyATR, err := analysisCall[ATRResult](ctx, CalculateATRHandler, map[string]any{"candles": daily, "period": 14})
+		if err != nil {
+			return err
+		}
+		row.DailyATR = &dailyATR
+	}
+
 	m15, err := load(entry)
 	if err != nil {
 		return err
 	}
 	row.EntryClosedAt = m15[len(m15)-1].Timestamp + int64(entry)*60
+	if len(m15) >= 220 {
+		chartCandles := make([]Candle, len(m15))
+		for i, candle := range m15 {
+			chartCandles[i] = *candle
+		}
+		chart := analyzeChart(chartCandles, entry, asOf, chartCandles[len(chartCandles)-1].Timestamp/86400*86400)
+		row.Chart = &chart
+	}
 	entryATR, err := analysisCall[ATRResult](ctx, CalculateATRHandler, map[string]any{"candles": m15, "period": 14})
 	if err != nil {
 		return err
@@ -342,4 +394,16 @@ func analyzeMarketPair(ctx context.Context, row *MarketTradeAnalysis, trend, ent
 		row.Reasons = append(row.Reasons, "latest entry candle has no trades (zero volume); no entry")
 	}
 	return nil
+}
+
+func relativeStrengthPass(rank RSRankResult, symbol string) bool {
+	if !slices.Contains(rank.Top3, symbol) {
+		return false
+	}
+	for _, row := range rank.Rankings {
+		if row.Symbol == symbol {
+			return strings.EqualFold(symbol, rank.Benchmark) || row.OutperformsBenchmark
+		}
+	}
+	return false
 }

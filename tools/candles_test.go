@@ -6,9 +6,15 @@ func TestParseOHLCV(t *testing.T) {
 	raw := []any{
 		map[string]any{"open": 99.0, "high": 102.0, "low": 98.0, "close": 101.0, "volume": 500.0},
 		map[string]any{"high": 103.0, "low": 99.0, "close": 102.0}, // missing open/volume → still valid
-		map[string]any{"open": 100.0, "low": 99.0},                  // missing high/close → skipped
+		map[string]any{"open": 100.0, "low": 99.0},                 // missing high/close → skipped
 	}
-	got := parseOHLCV(raw)
+	got, err := parseOHLCV(raw[:2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseOHLCV(raw); err == nil {
+		t.Fatal("malformed rows must fail, not be skipped")
+	}
 	if len(got) != 2 {
 		t.Fatalf("want 2 candles (row without high/close skipped), got %d", len(got))
 	}
@@ -34,5 +40,22 @@ func TestATRFromCandles(t *testing.T) {
 	// not enough candles → 0 (period+1 required)
 	if got := atrFromCandles(candles[:2], 2); got != 0 {
 		t.Errorf("insufficient candles: want 0, got %v", got)
+	}
+}
+
+func TestParseOHLCVRejectsInvalidRangesAndTime(t *testing.T) {
+	for _, raw := range [][]any{
+		{map[string]any{"high": 100.0, "low": 101.0, "close": 100.0}},
+		{map[string]any{"high": 102.0, "low": 99.0, "close": 100.0, "timestamp": 60.0}, map[string]any{"high": 102.0, "low": 99.0, "close": 100.0, "timestamp": 60.0}},
+		{map[string]any{"high": 102.0, "low": 99.0, "close": 100.0, "synthetic": true, "volume": 10.0}},
+	} {
+		if _, err := parseOHLCV(raw); err == nil {
+			t.Fatal("expected invalid candle error")
+		}
+	}
+	raw := []any{map[string]any{"timestamp": 60.0, "open": 100.0, "high": 100.0, "low": 100.0, "close": 100.0, "synthetic": true, "volume": 0.0}}
+	got, err := parseOHLCV(raw)
+	if err != nil || !got[0].Synthetic || got[0].Timestamp != 60 {
+		t.Fatalf("metadata lost: %+v %v", got, err)
 	}
 }

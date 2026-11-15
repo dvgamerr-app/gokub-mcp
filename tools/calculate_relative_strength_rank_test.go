@@ -93,3 +93,28 @@ func TestCalculateRelativeStrengthRankHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestRelativeStrengthRequiresBenchmarkAndValidPrices(t *testing.T) {
+	for _, args := range []map[string]any{
+		{"period": 1, "symbols": map[string]any{"ETH": []float64{100, 110}}, "benchmark": "BTC"},
+		{"period": -1, "symbols": map[string]any{"BTC": []float64{100, 110}}, "benchmark": "BTC"},
+		{"period": 1, "symbols": map[string]any{"BTC": []float64{0, 110}}, "benchmark": "BTC"},
+	} {
+		if _, err := analysisCall[RSRankResult](context.Background(), CalculateRelativeStrengthRankHandler, args); err == nil {
+			t.Fatal("expected validation error")
+		}
+	}
+}
+
+func TestRelativeStrengthSeparatesRankFromOutperformance(t *testing.T) {
+	out, err := analysisCall[RSRankResult](context.Background(), CalculateRelativeStrengthRankHandler, map[string]any{"period": 1, "symbols": map[string]any{"BTC": []float64{100, 105}, "ETH": []float64{100, 101}}, "benchmark": "BTC"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Rankings[1].OutperformsBenchmark || out.Rankings[1].RelativeROC != -4 {
+		t.Fatalf("underperformer: %+v", out.Rankings[1])
+	}
+	if relativeStrengthPass(out, "ETH") || !relativeStrengthPass(out, "BTC") {
+		t.Fatal("ranking gate ignored benchmark")
+	}
+}

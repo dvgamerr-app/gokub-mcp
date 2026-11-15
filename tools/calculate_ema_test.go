@@ -116,3 +116,13 @@ func TestCalculateEMAHandler(t *testing.T) {
 		})
 	}
 }
+
+func TestCalculateEMASeedHasNoTrend(t *testing.T) {
+	out, err := analysisCall[EMAResult](context.Background(), CalculateEMAHandler, map[string]any{"period": 3, "prices": []float64{3, 2, 1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Current != 2 || out.Previous != 2 || out.Trend != "neutral" || out.TrendAvailable || len(out.EMA) != 3 || out.ValidFromIndex != 2 {
+		t.Fatalf("unseeded trend: %+v", out)
+	}
+}

@@ -28,7 +28,7 @@ func computePnL(entry, current, qty, stop, makerFee, takerFee float64) TradePnLO
 	net := gross - totalFee
 
 	out := TradePnLOutput{
-		CurrentPrice: utils.Round(current, 2),
+		CurrentPrice: current,
 		PnLTHB:       utils.Round(net, 2),
 		PnLPercent:   utils.Round(net/(entry*qty)*100, 2),
 		TotalFee:     utils.Round(totalFee, 2),
@@ -108,7 +108,7 @@ func CheckTradePnLHandler(ctx context.Context, request mcp.CallToolRequest) (*mc
 
 	out := computePnL(entry, current, qty, stop, makerFee, takerFee)
 
-	return utils.ArtifactsResult(fmt.Sprintf(`💹 PnL %s: price %.2f | net %.2f THB (%.2f%%) | R=%.2f | fees %.2f THB`,
+	return utils.ArtifactsResult(fmt.Sprintf(`💹 PnL %s: price %.10g | net %.2f THB (%.2f%%) | R=%.2f | fees %.2f THB`,
 		strings.ToUpper(symbol), out.CurrentPrice, out.PnLTHB, out.PnLPercent, out.RMultiple, out.TotalFee,
 	), out)
 }

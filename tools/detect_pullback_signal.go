@@ -66,14 +66,12 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	parsed := parseOHLCV(candlesRaw)
-	candles := make([]OHLCData, len(parsed))
-	closes := make([]float64, len(parsed))
-	volumes := make([]float64, len(parsed))
-	for i, c := range parsed {
-		candles[i] = OHLCData{High: c.High, Low: c.Low, Close: c.Close}
-		closes[i] = c.Close
-		volumes[i] = c.Volume
+	parsed, err := parseOHLCV(candlesRaw)
+	if err != nil {
+		return utils.ErrorResult(err.Error())
+	}
+	if err := requireCandleFields(candlesRaw, "open", "volume"); err != nil {
+		return utils.ErrorResult(err.Error())
 	}
 
 	emaPeriod := utils.GetIntArg(args, "ema_period", 20)
@@ -81,14 +79,45 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 	rsiMin := utils.GetFloat64Arg(args, "rsi_min", 40)
 	rsiMax := utils.GetFloat64Arg(args, "rsi_max", 50)
 
-	if len(candles) < max(emaPeriod, rsiPeriod)+5 {
+	if emaPeriod < 1 || rsiPeriod < 1 || emaPeriod >= len(parsed) || rsiPeriod >= len(parsed)-1 || math.IsNaN(rsiMin) || math.IsNaN(rsiMax) || math.IsInf(rsiMin, 0) || math.IsInf(rsiMax, 0) || rsiMin < 0 || rsiMax > 100 || rsiMin > rsiMax {
+		return utils.ErrorResult("invalid EMA/RSI periods or RSI bounds")
+	}
+	if len(parsed) < max(emaPeriod, rsiPeriod)+5 {
 		return utils.ErrorResult(fmt.Sprintf("need at least %d candles", max(emaPeriod, rsiPeriod)+5))
+	}
+
+	result := detectPullbackSignal(parsed, emaPeriod, rsiPeriod, rsiMin, rsiMax)
+
+	summary := fmt.Sprintf("Pullback Signal Detection (EMA%d, RSI%d)\n", emaPeriod, rsiPeriod)
+	summary += fmt.Sprintf("Signal: %s\n\n", result.Signal)
+	summary += fmt.Sprintf("Current Price: %.10g | EMA%d: %.10g (%.10g%% from EMA)\n", result.CurrentPrice, emaPeriod, result.EMA20, result.PriceToEMA)
+	summary += fmt.Sprintf("RSI: %.10g (Bounce Zone: %.0f-%.0f)\n", result.RSI, rsiMin, rsiMax)
+	summary += fmt.Sprintf("Reversal Bar: %v\n", result.HasReversalBar)
+	summary += fmt.Sprintf("Volume Ratio: %.10gx (Current: %.10g | Avg20: %.10g)\n", result.VolumeRatio, result.CurrentVolume, result.AvgVolume20)
+
+	if result.Signal == "PULLBACK_BUY" {
+		summary += "\n✅ PULLBACK CONFIRMED\n"
+		summary += fmt.Sprintf("Suggested Entry: %.10g (above reversal high)\n", result.SuggestedEntry)
+		summary += fmt.Sprintf("Suggested Stop: %.10g (below swing low %.10g)\n", result.SuggestedStop, result.SwingLow)
+		summary += fmt.Sprintf("Risk: %.10g%%", ((result.SuggestedEntry-result.SuggestedStop)/result.SuggestedEntry)*100)
+	}
+
+	return utils.ArtifactsResult(summary, result)
+}
+
+func detectPullbackSignal(parsed []Candle, emaPeriod, rsiPeriod int, rsiMin, rsiMax float64) *PullbackSignal {
+	candles := parsed
+	closes := make([]float64, len(parsed))
+	volumes := make([]float64, len(parsed))
+	for i, c := range parsed {
+		closes[i], volumes[i] = c.Close, c.Volume
 	}
 
 	emaValues := calculateEMA(closes, emaPeriod)
 	currentEMA := emaValues[len(emaValues)-1]
 
 	rsi := calculateRSI(closes, rsiPeriod)
+	previousRSI := calculateRSI(closes[:len(closes)-1], rsiPeriod)
 
 	currentCandle := candles[len(candles)-1]
 	previousCandle := candles[len(candles)-2]
@@ -97,7 +126,7 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 
 	nearEMA := math.Abs(priceToEMAPercent) <= 2.0
 
-	rsiInBounceZone := rsi >= rsiMin && rsi <= rsiMax
+	rsiInBounceZone := rsi >= rsiMin && rsi <= rsiMax && rsi > previousRSI
 
 	hasReversalBar := false
 	reversalClose := currentCandle.Close
@@ -131,7 +160,11 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 	}
 
 	signal := "NO_SIGNAL"
-	if nearEMA && rsiInBounceZone && hasReversalBar {
+	last := parsed[len(candles)-1]
+	previous := parsed[len(candles)-2]
+	pulledBack := len(closes) >= 3 && previous.Close < closes[len(closes)-3]
+	bounced := last.Close > last.Open && last.Close > previous.Close && last.Low <= currentEMA*1.02
+	if !last.Synthetic && !previous.Synthetic && last.Volume > 0 && pulledBack && bounced && nearEMA && rsiInBounceZone && hasReversalBar {
 		signal = "PULLBACK_BUY"
 	}
 
@@ -140,34 +173,20 @@ func DetectPullbackSignalHandler(ctx context.Context, request mcp.CallToolReques
 
 	result := &PullbackSignal{
 		Signal:           signal,
-		CurrentPrice:     utils.Round(currentCandle.Close, 2),
-		EMA20:            utils.Round(currentEMA, 2),
-		RSI:              utils.Round(rsi, 2),
-		PriceToEMA:       utils.Round(priceToEMAPercent, 2),
+		CurrentPrice:     currentCandle.Close,
+		EMA20:            currentEMA,
+		RSI:              rsi,
+		PriceToEMA:       priceToEMAPercent,
 		HasReversalBar:   hasReversalBar,
-		ReversalBarClose: utils.Round(reversalClose, 2),
-		ReversalBarHigh:  utils.Round(reversalHigh, 2),
-		CurrentVolume:    utils.Round(currentVolume, 2),
-		AvgVolume20:      utils.Round(avgVolume, 2),
-		VolumeRatio:      utils.Round(volumeRatio, 2),
-		SuggestedEntry:   utils.Round(suggestedEntry, 2),
-		SuggestedStop:    utils.Round(suggestedStop, 2),
-		SwingLow:         utils.Round(swingLow, 2),
+		ReversalBarClose: reversalClose,
+		ReversalBarHigh:  reversalHigh,
+		CurrentVolume:    currentVolume,
+		AvgVolume20:      avgVolume,
+		VolumeRatio:      volumeRatio,
+		SuggestedEntry:   suggestedEntry,
+		SuggestedStop:    suggestedStop,
+		SwingLow:         swingLow,
 	}
 
-	summary := fmt.Sprintf("Pullback Signal Detection (EMA%d, RSI%d)\n", emaPeriod, rsiPeriod)
-	summary += fmt.Sprintf("Signal: %s\n\n", result.Signal)
-	summary += fmt.Sprintf("Current Price: %.2f | EMA%d: %.2f (%.2f%% from EMA)\n", result.CurrentPrice, emaPeriod, result.EMA20, result.PriceToEMA)
-	summary += fmt.Sprintf("RSI: %.2f (Bounce Zone: %.0f-%.0f)\n", result.RSI, rsiMin, rsiMax)
-	summary += fmt.Sprintf("Reversal Bar: %v\n", result.HasReversalBar)
-	summary += fmt.Sprintf("Volume Ratio: %.2fx (Current: %.2f | Avg20: %.2f)\n", result.VolumeRatio, result.CurrentVolume, result.AvgVolume20)
-
-	if signal == "PULLBACK_BUY" {
-		summary += "\n✅ PULLBACK CONFIRMED\n"
-		summary += fmt.Sprintf("Suggested Entry: %.2f (above reversal high)\n", result.SuggestedEntry)
-		summary += fmt.Sprintf("Suggested Stop: %.2f (below swing low %.2f)\n", result.SuggestedStop, result.SwingLow)
-		summary += fmt.Sprintf("Risk: %.2f%%", ((result.SuggestedEntry-result.SuggestedStop)/result.SuggestedEntry)*100)
-	}
-
-	return utils.ArtifactsResult(summary, result)
+	return result
 }

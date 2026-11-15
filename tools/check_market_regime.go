@@ -16,11 +16,11 @@ func NewCheckMarketRegimeTool() mcp.Tool {
 		mcp.WithDescription(`Analyze market regime from close prices or candles. Returns UPTREND, DOWNTREND, or SIDEWAYS with reasons and score.`),
 		mcp.WithArray("prices",
 			mcp.Items("number"),
-			mcp.Description("Array of close prices for market regime analysis. Preferred input from get_historical_candles(..., format='close')."),
+			mcp.Description("Array of close prices for market regime analysis. Close-only fallback; ADX is unavailable without OHLC candles."),
 		),
 		mcp.WithArray("candles",
 			mcp.Items("object"),
-			mcp.Description("Array of OHLCV candle objects. If provided, close prices will be extracted automatically."),
+			mcp.Description("Preferred: completed OHLCV candles for Wilder ADX. Do not supply both prices and candles."),
 		),
 		mcp.WithNumber("lookback",
 			mcp.Description("Lookback period for analysis. Default: 20"),
@@ -35,7 +35,7 @@ func CheckMarketRegimeHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return utils.ErrorResult("invalid arguments")
 	}
 
-	prices, err := parseRegimePrices(args)
+	prices, candles, err := parseRegimeData(args)
 	if err != nil {
 		return utils.ErrorResult(err.Error())
 	}
@@ -49,13 +49,19 @@ func CheckMarketRegimeHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return utils.ErrorResult(fmt.Sprintf("not enough data: need at least %d close prices or candles, then pass result.prices from get_historical_candles(..., format='close') or candles[] directly", lookback))
 	}
 
-	regime := analyzeMarketRegime(prices, lookback)
+	adxAvailable := len(candles) >= 28
+	dmi := calculateDMI(candles, 14)
+	regime := analyzeMarketRegime(prices, lookback, dmi, adxAvailable)
 
 	summary := fmt.Sprintf("Market Regime Analysis (%d-period lookback)\n", lookback)
 	summary += fmt.Sprintf("Regime: %s | Score: %.0f | Net Change: %.2f%%\n",
 		regime.Regime, regime.Score, regime.NetChangePercent)
 	summary += fmt.Sprintf("ADX: %.2f | Volatility: %.2f%% | Trend Strength: %.2f\n",
 		regime.ADX, regime.Volatility*100, regime.TrendStrength)
+	if !adxAvailable {
+		summary += "ADX unavailable: supply at least 28 completed OHLC candles.\n"
+	}
+	summary += "Score is a heuristic, not a probability of profit.\n"
 	summary += fmt.Sprintf("Reasons: %s\nRecommendation: %s",
 		strings.Join(regime.Reasons, "; "), regime.Recommendation)
 
@@ -68,17 +74,22 @@ type MarketRegime struct {
 	Volatility       float64  `json:"volatility"`
 	TrendStrength    float64  `json:"trend_strength"`
 	ADX              float64  `json:"adx"`
+	ADXAvailable     bool     `json:"adx_available"`
+	PlusDI           float64  `json:"plus_di"`
+	MinusDI          float64  `json:"minus_di"`
+	Method           string   `json:"method"`
+	ScoreType        string   `json:"score_type"`
 	NetChangePercent float64  `json:"net_change_percent"`
 	Reasons          []string `json:"reasons"`
 	Recommendation   string   `json:"recommendation"`
 }
 
-func analyzeMarketRegime(prices []float64, lookback int) *MarketRegime {
+func analyzeMarketRegime(prices []float64, lookback int, dmi DMIReading, adxAvailable bool) *MarketRegime {
 	recentPrices := prices[len(prices)-lookback:]
 
 	volatility := calculateVolatility(recentPrices)
 	trendStrength := calculateTrendStrength(recentPrices)
-	adx := calculateADX(prices, 14)
+	adx := dmi.ADX
 	netChangePercent := ((recentPrices[len(recentPrices)-1] - recentPrices[0]) / recentPrices[0]) * 100
 
 	regime := "SIDEWAYS"
@@ -88,28 +99,34 @@ func analyzeMarketRegime(prices []float64, lookback int) *MarketRegime {
 	}
 	recommendation := "Stand aside for long-only trend trades"
 
+	uptrend := adxAvailable && adx >= 25 && dmi.PlusDI > dmi.MinusDI && netChangePercent > 0
+	downtrend := adxAvailable && adx >= 25 && dmi.MinusDI > dmi.PlusDI && netChangePercent < 0
+	method := "wilder_dmi"
+	if !adxAvailable {
+		method = "close_only_fallback"
+		uptrend = netChangePercent >= 2 && trendStrength >= .55
+		downtrend = netChangePercent <= -2 && trendStrength >= .55
+	}
 	switch {
-	case netChangePercent >= 2 && (adx >= 20 || trendStrength >= 0.55):
+	case uptrend:
 		regime = "UPTREND"
 		score = marketRegimeScore(netChangePercent, trendStrength, adx)
 		reasons = append(reasons,
 			fmt.Sprintf("close is rising with trend strength %.2f", utils.Round(trendStrength, 2)),
-			fmt.Sprintf("ADX %.2f confirms directional strength", utils.Round(adx, 2)),
 		)
 		recommendation = "Long-only trend-following setups are allowed"
-	case netChangePercent <= -2 && (adx >= 20 || trendStrength >= 0.55):
+	case downtrend:
 		regime = "DOWNTREND"
 		score = marketRegimeScore(math.Abs(netChangePercent), trendStrength, adx)
 		reasons = append(reasons,
 			fmt.Sprintf("close is falling with trend strength %.2f", utils.Round(trendStrength, 2)),
-			fmt.Sprintf("ADX %.2f confirms directional weakness", utils.Round(adx, 2)),
 		)
 		recommendation = "Avoid long-only setups until trend improves"
 	default:
-		if math.Abs(netChangePercent) < 2 {
+		if !adxAvailable && math.Abs(netChangePercent) < 2 {
 			reasons = append(reasons, "price stayed inside a low-drift range")
 		}
-		if adx < 20 {
+		if adxAvailable && adx < 25 {
 			reasons = append(reasons, fmt.Sprintf("ADX %.2f is below trend threshold", utils.Round(adx, 2)))
 		}
 		if volatility > 0.02 {
@@ -117,7 +134,17 @@ func analyzeMarketRegime(prices []float64, lookback int) *MarketRegime {
 		}
 	}
 
+	if adxAvailable {
+		reasons = append(reasons, fmt.Sprintf("Wilder ADX %.2f measures strength, not direction", adx))
+		reasons = append(reasons, fmt.Sprintf("+DI %.2f and -DI %.2f determine direction; ADX >=25 and matching net price direction are required", dmi.PlusDI, dmi.MinusDI))
+	} else {
+		reasons = append(reasons, "ADX unavailable; close-only trend assessment")
+	}
+
 	return &MarketRegime{
+		PlusDI: dmi.PlusDI, MinusDI: dmi.MinusDI, Method: method,
+		ADXAvailable:     adxAvailable,
+		ScoreType:        "heuristic",
 		Regime:           regime,
 		Score:            utils.Round(score, 0),
 		Volatility:       utils.Round(volatility, 4),
@@ -129,47 +156,58 @@ func analyzeMarketRegime(prices []float64, lookback int) *MarketRegime {
 	}
 }
 
-func parseRegimePrices(args map[string]any) ([]float64, error) {
-	if pricesRaw, ok := args["prices"].([]any); ok {
-		prices, err := utils.ParseFloatArray(pricesRaw)
-		if err != nil {
-			return nil, fmt.Errorf("prices must contain numbers only")
+func parseRegimeData(args map[string]any) ([]float64, []Candle, error) {
+	if _, exists := args["prices"]; exists {
+		if _, exists := args["candles"]; exists {
+			return nil, nil, fmt.Errorf("supply prices or candles, not both")
 		}
-		return prices, nil
+		prices, err := utils.GetFloat64ArrayArg(args, "prices")
+		return prices, nil, err
 	}
-
-	if candlesRaw, ok := args["candles"].([]any); ok {
-		prices := make([]float64, 0, len(candlesRaw))
-		for _, candle := range candlesRaw {
-			candleMap, ok := candle.(map[string]any)
+	raw, ok := args["candles"].([]any)
+	if !ok || len(raw) == 0 {
+		return nil, nil, fmt.Errorf("missing price data: call get_historical_candles, then pass prices[] or completed candles[]")
+	}
+	first, ok := raw[0].(map[string]any)
+	if !ok {
+		return nil, nil, fmt.Errorf("candles must be objects")
+	}
+	_, fullOHLC := first["high"]
+	input := raw
+	if !fullOHLC {
+		input = make([]any, len(raw))
+		for i, value := range raw {
+			row, ok := value.(map[string]any)
 			if !ok {
-				continue
+				return nil, nil, fmt.Errorf("candle %d must be an object", i)
 			}
-
-			switch close := candleMap["close"].(type) {
-			case float64:
-				if close > 0 {
-					prices = append(prices, close)
-				}
-			case int:
-				if close > 0 {
-					prices = append(prices, float64(close))
+			if _, exists := row["high"]; exists {
+				return nil, nil, fmt.Errorf("do not mix OHLC and close-only candles")
+			}
+			if _, exists := row["low"]; exists {
+				return nil, nil, fmt.Errorf("OHLC candles require high, low and close")
+			}
+			bar := map[string]any{"high": row["close"], "low": row["close"], "close": row["close"]}
+			for _, key := range []string{"timestamp", "volume", "synthetic"} {
+				if v, ok := row[key]; ok {
+					bar[key] = v
 				}
 			}
+			input[i] = bar
 		}
-
-		if len(prices) == 0 {
-			return nil, fmt.Errorf("candles must include a valid close field")
-		}
-
-		return prices, nil
 	}
-
-	if _, hasSymbol := args["symbol"]; hasSymbol {
-		return nil, fmt.Errorf("symbol alone is not enough for check_market_regime; call get_historical_candles first, then pass result.prices or candles[]")
+	candles, err := parseOHLCV(input)
+	if err != nil {
+		return nil, nil, err
 	}
-
-	return nil, fmt.Errorf("missing price data: pass prices[] from get_historical_candles(..., format='close') or candles[] from get_historical_candles(...)")
+	prices := make([]float64, len(candles))
+	for i, bar := range candles {
+		prices[i] = bar.Close
+	}
+	if !fullOHLC {
+		candles = nil
+	}
+	return prices, candles, nil
 }
 
 func marketRegimeScore(netChangePercent, trendStrength, adx float64) float64 {
@@ -233,77 +271,50 @@ func calculateTrendStrength(prices []float64) float64 {
 	return math.Abs(float64(upMoves-downMoves)) / float64(total)
 }
 
-func calculateADX(prices []float64, period int) float64 {
-	if len(prices) < period*2 {
-		return 0
-	}
-
-	tr := make([]float64, len(prices)-1)
-	plusDM := make([]float64, len(prices)-1)
-	minusDM := make([]float64, len(prices)-1)
-
-	for i := 1; i < len(prices); i++ {
-		high := prices[i]
-		low := prices[i]
-		prevClose := prices[i-1]
-
-		tr[i-1] = math.Max(high-low, math.Max(math.Abs(high-prevClose), math.Abs(low-prevClose)))
-
-		upMove := high - prices[i-1]
-		downMove := prices[i-1] - low
-
-		if upMove > downMove && upMove > 0 {
-			plusDM[i-1] = upMove
-		}
-		if downMove > upMove && downMove > 0 {
-			minusDM[i-1] = downMove
-		}
-	}
-
-	atr := emaSmooth(tr, period)
-	plusDI := make([]float64, len(tr))
-	minusDI := make([]float64, len(tr))
-
-	for i := range atr {
-		if atr[i] != 0 {
-			plusDI[i] = 100 * plusDM[i] / atr[i]
-			minusDI[i] = 100 * minusDM[i] / atr[i]
-		}
-	}
-
-	dx := make([]float64, len(plusDI))
-	for i := range plusDI {
-		sum := plusDI[i] + minusDI[i]
-		if sum != 0 {
-			dx[i] = 100 * math.Abs(plusDI[i]-minusDI[i]) / sum
-		}
-	}
-
-	adxValues := emaSmooth(dx, period)
-	if len(adxValues) > 0 {
-		return adxValues[len(adxValues)-1]
-	}
-
-	return 0
+type DMIReading struct {
+	ADX     float64 `json:"adx"`
+	PlusDI  float64 `json:"plus_di"`
+	MinusDI float64 `json:"minus_di"`
 }
 
-func emaSmooth(data []float64, period int) []float64 {
-	if len(data) < period {
-		return data
+func calculateDMI(candles []Candle, period int) DMIReading {
+	if period < 2 || len(candles) < 2*period {
+		return DMIReading{}
 	}
-
-	result := make([]float64, len(data))
-	multiplier := 2.0 / float64(period+1)
-
-	sma := 0.0
-	for i := 0; i < period; i++ {
-		sma += data[i]
+	tr, plus, minus, adx := 0.0, 0.0, 0.0, 0.0
+	for i := 1; i < len(candles); i++ {
+		current, previous := candles[i], candles[i-1]
+		up, down := current.High-previous.High, previous.Low-current.Low
+		plusDM, minusDM := 0.0, 0.0
+		if up > down && up > 0 {
+			plusDM = up
+		}
+		if down > up && down > 0 {
+			minusDM = down
+		}
+		trueRange := math.Max(current.High-current.Low, math.Max(math.Abs(current.High-previous.Close), math.Abs(current.Low-previous.Close)))
+		if i < period {
+			tr += trueRange
+			plus += plusDM
+			minus += minusDM
+			continue
+		}
+		tr = tr - tr/float64(period) + trueRange
+		plus = plus - plus/float64(period) + plusDM
+		minus = minus - minus/float64(period) + minusDM
+		dx := 0.0
+		if tr > 0 && plus+minus > 0 {
+			dx = 100 * math.Abs(plus-minus) / (plus + minus)
+		}
+		if i < 2*period {
+			adx += dx / float64(period)
+		} else {
+			adx = (adx*float64(period-1) + dx) / float64(period)
+		}
 	}
-	result[period-1] = sma / float64(period)
-
-	for i := period; i < len(data); i++ {
-		result[i] = (data[i]-result[i-1])*multiplier + result[i-1]
+	out := DMIReading{ADX: adx}
+	if tr > 0 {
+		out.PlusDI, out.MinusDI = 100*plus/tr, 100*minus/tr
 	}
-
-	return result
+	return out
 }
