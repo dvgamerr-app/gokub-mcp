@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
+	"math"
 
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/rs/zerolog/log"
@@ -56,16 +57,42 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	candles := parseOHLCV(candlesRaw)
+	candles, err := parseOHLCV(candlesRaw)
+	if err != nil {
+		return utils.ErrorResult(err.Error())
+	}
+
+	if err := requireCandleFields(candlesRaw, "volume"); err != nil {
+		return utils.ErrorResult(err.Error())
+	}
 
 	lookback := utils.GetIntArg(args, "lookback", 20)
 	volumeThreshold := utils.GetFloat64Arg(args, "volume_threshold", 1.5)
 	atrMultiplier := utils.GetFloat64Arg(args, "atr_multiplier", 1.5)
 
-	if len(candles) < lookback+1 {
-		return utils.ErrorResult(fmt.Sprintf("need at least %d candles", lookback+1))
+	if lookback < 1 || lookback >= len(candles) || volumeThreshold <= 0 || atrMultiplier <= 0 || math.IsNaN(volumeThreshold) || math.IsInf(volumeThreshold, 0) || math.IsNaN(atrMultiplier) || math.IsInf(atrMultiplier, 0) {
+		return utils.ErrorResult("lookback must be positive and shorter than history; multipliers must be finite and positive")
+	}
+	if len(candles) < max(lookback+1, 15) {
+		return utils.ErrorResult(fmt.Sprintf("need at least %d candles", max(lookback+1, 15)))
 	}
 
+	result := detectBreakoutSignal(candles, lookback, volumeThreshold, atrMultiplier)
+
+	summary := fmt.Sprintf("Breakout Signal Detection (lookback: %d)\n", lookback)
+	summary += fmt.Sprintf("Signal: %s\n\n", result.Signal)
+	summary += fmt.Sprintf("Current Price: %.10g | High(%d): %.10g\n", result.CurrentPrice, lookback, result.High20)
+	summary += fmt.Sprintf("Volume Ratio: %.10gx (Current: %.10g | Avg: %.10g)\n", result.VolumeRatio, result.CurrentVolume, result.AvgVolume20)
+	if result.Signal == "BREAKOUT_BUY" {
+		summary += "\n✅ BREAKOUT CONFIRMED\n"
+		summary += fmt.Sprintf("Suggested Entry: %.10g\n", result.SuggestedEntry)
+		summary += fmt.Sprintf("Suggested Stop: %.10g (%.10g%% below entry)", result.SuggestedStop, ((result.SuggestedEntry-result.SuggestedStop)/result.SuggestedEntry)*100)
+	}
+
+	return utils.ArtifactsResult(summary, result)
+}
+
+func detectBreakoutSignal(candles []Candle, lookback int, volumeThreshold, atrMultiplier float64) *BreakoutSignal {
 	currentCandle := candles[len(candles)-1]
 	currentVolume := currentCandle.Volume
 
@@ -88,7 +115,7 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 	}
 
 	signal := "NO_SIGNAL"
-	if currentCandle.Close > high20 && volumeRatio >= volumeThreshold {
+	if !currentCandle.Synthetic && currentVolume > 0 && currentCandle.Close > high20 && volumeRatio >= volumeThreshold {
 		signal = "BREAKOUT_BUY"
 	}
 
@@ -97,25 +124,15 @@ func DetectBreakoutSignalHandler(ctx context.Context, request mcp.CallToolReques
 
 	result := &BreakoutSignal{
 		Signal:         signal,
-		CurrentPrice:   utils.Round(currentCandle.Close, 2),
-		High20:         utils.Round(high20, 2),
-		CurrentVolume:  utils.Round(currentVolume, 2),
-		AvgVolume20:    utils.Round(avgVolume, 2),
-		VolumeRatio:    utils.Round(volumeRatio, 2),
-		SuggestedEntry: utils.Round(currentCandle.Close*1.001, 2),
-		SuggestedStop:  utils.Round(suggestedStop, 2),
+		CurrentPrice:   currentCandle.Close,
+		High20:         high20,
+		CurrentVolume:  currentVolume,
+		AvgVolume20:    avgVolume,
+		VolumeRatio:    volumeRatio,
+		SuggestedEntry: currentCandle.Close * 1.001,
+		SuggestedStop:  suggestedStop,
 		Lookback:       lookback,
 	}
 
-	summary := fmt.Sprintf("Breakout Signal Detection (lookback: %d)\n", lookback)
-	summary += fmt.Sprintf("Signal: %s\n\n", result.Signal)
-	summary += fmt.Sprintf("Current Price: %.2f | High(%d): %.2f\n", result.CurrentPrice, lookback, result.High20)
-	summary += fmt.Sprintf("Volume Ratio: %.2fx (Current: %.2f | Avg: %.2f)\n", result.VolumeRatio, result.CurrentVolume, result.AvgVolume20)
-	if signal == "BREAKOUT_BUY" {
-		summary += "\n✅ BREAKOUT CONFIRMED\n"
-		summary += fmt.Sprintf("Suggested Entry: %.2f\n", result.SuggestedEntry)
-		summary += fmt.Sprintf("Suggested Stop: %.2f (%.2f%% below entry)", result.SuggestedStop, ((result.SuggestedEntry-result.SuggestedStop)/result.SuggestedEntry)*100)
-	}
-
-	return utils.ArtifactsResult(summary, result)
+	return result
 }

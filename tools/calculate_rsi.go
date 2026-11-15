@@ -60,7 +60,7 @@ func CalculateRSIHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		signal = "overbought"
 	} else if rsi <= 30 {
 		signal = "oversold"
-	} else if rsi >= 40 && rsi <= 50 {
+	} else if rsi >= 40 && rsi < 50 {
 		signal = "bounce_zone"
 	}
 
@@ -104,6 +104,9 @@ func calculateRSI(prices []float64, period int) float64 {
 		avgLoss = (avgLoss*float64(period-1) + loss) / float64(period)
 	}
 
+	if avgGain == 0 && avgLoss == 0 {
+		return 50
+	}
 	if avgLoss == 0 {
 		return 100
 	}

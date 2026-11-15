@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"math"
 	"testing"
 
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
@@ -34,8 +35,8 @@ func TestCalculateATRFormula(t *testing.T) {
 	if out.ATR != 2.0 {
 		t.Errorf("ATR: want 2.0, got %v", out.ATR)
 	}
-	if out.ATRPercent != 18.18 {
-		t.Errorf("ATR%%: want 18.18, got %v (formula: ATR/close×100)", out.ATRPercent)
+	if math.Abs(out.ATRPercent-200.0/11) > 1e-10 {
+		t.Errorf("ATR%%: want 200/11, got %v (formula: ATR/close×100)", out.ATRPercent)
 	}
 }
 

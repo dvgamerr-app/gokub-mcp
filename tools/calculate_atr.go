@@ -52,40 +52,9 @@ func CalculateATRHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	candles := make([]OHLCData, 0, len(candlesRaw))
-	for _, c := range candlesRaw {
-		candleMap, ok := c.(map[string]any)
-		if !ok {
-			continue
-		}
-
-		high, okH := candleMap["high"].(float64)
-		low, okL := candleMap["low"].(float64)
-		close, okC := candleMap["close"].(float64)
-
-		if !okH || !okL || !okC {
-			var h, l, cl float64
-			if hi, ok := candleMap["high"].(int); ok {
-				h = float64(hi)
-			}
-			if lo, ok := candleMap["low"].(int); ok {
-				l = float64(lo)
-			}
-			if cls, ok := candleMap["close"].(int); ok {
-				cl = float64(cls)
-			}
-			if h > 0 && l > 0 && cl > 0 {
-				high, low, close = h, l, cl
-			} else {
-				continue
-			}
-		}
-
-		candles = append(candles, OHLCData{
-			High:  high,
-			Low:   low,
-			Close: close,
-		})
+	candles, err := parseOHLCV(candlesRaw)
+	if err != nil {
+		return utils.ErrorResult(err.Error())
 	}
 
 	period := utils.GetIntArg(args, "period", 14)
@@ -116,13 +85,13 @@ func CalculateATRHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp
 	result := &ATRResult{
 		Period:       period,
 		DataPoints:   len(candles),
-		ATR:          utils.Round(atr, 2),
-		ATRPercent:   utils.Round(atrPercent, 2),
-		CurrentPrice: utils.Round(currentPrice, 2),
+		ATR:          atr,
+		ATRPercent:   atrPercent,
+		CurrentPrice: currentPrice,
 	}
 
 	summary := fmt.Sprintf("ATR(%d) calculated from %d candles\n", period, len(candles))
-	summary += fmt.Sprintf("ATR: %.2f | ATR%%: %.2f%% | Current Price: %.2f",
+	summary += fmt.Sprintf("ATR: %.10g | ATR%%: %.2f%% | Current Price: %.10g",
 		result.ATR, result.ATRPercent, result.CurrentPrice)
 
 	return utils.ArtifactsResult(summary, result)

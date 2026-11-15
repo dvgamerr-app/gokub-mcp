@@ -21,7 +21,7 @@ type CAPMResult struct {
 
 func NewCalculateCAPMTool() mcp.Tool {
 	return mcp.NewTool("calculate_capm",
-		mcp.WithDescription(`Calculate Capital Asset Pricing Model (CAPM) expected return.
+		mcp.WithDescription(`Calculate Capital Asset Pricing Model (CAPM) expected return from caller-supplied assumptions. This is not a chart indicator, a fitted forecast, an entry signal or a probability of profit. All return inputs must refer to the same horizon.
 CAPM Formula: E(Ri) = Rf + β * (E(Rm) - Rf)
 Where:
 - E(Ri) = Expected return of the asset

@@ -1,33 +1,110 @@
 package tools
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
-// parseOHLCV converts a raw candles array (from tool args) into []Candle.
-// JSON numbers decode to float64; rows missing high/low/close are skipped.
-func parseOHLCV(raw []any) []Candle {
+func parseOHLCV(raw []any) ([]Candle, error) {
 	candles := make([]Candle, 0, len(raw))
-	for _, c := range raw {
+	var interval int64
+	timestamped := false
+	for i, c := range raw {
 		m, ok := c.(map[string]any)
 		if !ok {
-			continue
+			return nil, fmt.Errorf("candle %d must be an object", i)
 		}
-		high, okH := m["high"].(float64)
-		low, okL := m["low"].(float64)
-		close, okC := m["close"].(float64)
-		if !okH || !okL || !okC {
-			continue
+		values := map[string]float64{}
+		for _, key := range []string{"high", "low", "close", "open", "volume", "timestamp"} {
+			v, exists := m[key]
+			if !exists && (key == "open" || key == "volume" || key == "timestamp") {
+				continue
+			}
+			n, valid := candleNumber(v)
+			if !valid {
+				return nil, fmt.Errorf("candle %d: %s must be a finite number", i, key)
+			}
+			values[key] = n
 		}
-		open, _ := m["open"].(float64)
-		volume, _ := m["volume"].(float64)
-		candles = append(candles, Candle{
-			Open:   open,
-			High:   high,
-			Low:    low,
-			Close:  close,
-			Volume: volume,
-		})
+		open, exists := values["open"]
+		if !exists {
+			open = values["close"]
+		}
+		bar := Candle{Open: open, High: values["high"], Low: values["low"], Close: values["close"], Volume: values["volume"]}
+		if err := validateCandle(bar); err != nil {
+			return nil, fmt.Errorf("candle %d: %w", i, err)
+		}
+		if v, exists := m["synthetic"]; exists {
+			bar.Synthetic, ok = v.(bool)
+			if !ok || (bar.Synthetic && (bar.Volume != 0 || bar.Open != bar.Close || bar.High != bar.Close || bar.Low != bar.Close)) {
+				return nil, fmt.Errorf("candle %d: invalid synthetic candle", i)
+			}
+		}
+		ts, hasTime := values["timestamp"]
+		if i == 0 {
+			timestamped = hasTime
+		}
+		if hasTime != timestamped || (hasTime && (ts < 0 || ts >= float64(math.MaxInt64) || ts != math.Trunc(ts))) {
+			return nil, fmt.Errorf("candle %d: timestamps must be present on all rows and be non-negative integer seconds", i)
+		}
+		bar.Timestamp = int64(ts)
+		if timestamped && i > 0 {
+			delta := bar.Timestamp - candles[i-1].Timestamp
+			if i == 1 {
+				interval = delta
+			}
+			if delta <= 0 || delta != interval {
+				return nil, fmt.Errorf("candle %d: timestamps must be increasing on a regular grid", i)
+			}
+		}
+		candles = append(candles, bar)
 	}
-	return candles
+	if len(candles) == 0 {
+		return nil, fmt.Errorf("candles must not be empty")
+	}
+	return candles, nil
+}
+
+func candleNumber(v any) (float64, bool) {
+	var n float64
+	switch value := v.(type) {
+	case float64:
+		n = value
+	case int:
+		n = float64(value)
+	case int64:
+		n = float64(value)
+	default:
+		return 0, false
+	}
+	return n, !math.IsNaN(n) && !math.IsInf(n, 0)
+}
+
+func validateCandle(c Candle) error {
+	for _, p := range []float64{c.Open, c.High, c.Low, c.Close} {
+		if p <= 0 || math.IsNaN(p) || math.IsInf(p, 0) {
+			return fmt.Errorf("OHLC prices must be finite and positive")
+		}
+	}
+	if c.Low > math.Min(c.Open, c.Close) || c.High < math.Max(c.Open, c.Close) || c.Volume < 0 || math.IsNaN(c.Volume) || math.IsInf(c.Volume, 0) {
+		return fmt.Errorf("invalid OHLC range or volume")
+	}
+	return nil
+}
+
+func requireCandleFields(raw []any, fields ...string) error {
+	for i, value := range raw {
+		row, ok := value.(map[string]any)
+		if !ok {
+			return fmt.Errorf("candle %d must be an object", i)
+		}
+		for _, field := range fields {
+			if _, ok := row[field]; !ok {
+				return fmt.Errorf("candle %d requires %s", i, field)
+			}
+		}
+	}
+	return nil
 }
 
 // atrFromCandles computes ATR over candles using the same Wilder smoothing as calculate_atr.

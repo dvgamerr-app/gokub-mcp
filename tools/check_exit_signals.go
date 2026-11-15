@@ -12,6 +12,7 @@ import (
 )
 
 type ExitSignalsOutput struct {
+	Status     string   `json:"status"`
 	ShouldExit bool     `json:"should_exit"`
 	Reasons    []string `json:"reasons"`
 	Urgency    string   `json:"urgency"`
@@ -25,10 +26,13 @@ func evaluateExitSignals(candles []Candle, lookback int) ExitSignalsOutput {
 	n := len(candles)
 	reasons := []string{}
 	if n < lookback+1 {
-		return ExitSignalsOutput{Detail: "not enough candles to evaluate"}
+		return ExitSignalsOutput{Status: "insufficient_data", Urgency: "unknown", Detail: "not enough candles to evaluate; no exit decision"}
 	}
 
 	last := candles[n-1]
+	if last.Synthetic || last.Volume <= 0 {
+		return ExitSignalsOutput{Status: "unavailable", Urgency: "unknown", Detail: "latest candle has no trades; no exit decision"}
+	}
 	prior := candles[n-1-lookback : n-1]
 
 	swingLow := math.MaxFloat64
@@ -54,6 +58,7 @@ func evaluateExitSignals(candles []Candle, lookback int) ExitSignalsOutput {
 	}
 
 	out := ExitSignalsOutput{
+		Status:     "evaluated",
 		ShouldExit: len(reasons) > 0,
 		Reasons:    reasons,
 	}
@@ -102,8 +107,17 @@ func CheckExitSignalsHandler(ctx context.Context, request mcp.CallToolRequest) (
 		return utils.ErrorResult("lookback must be greater than 0")
 	}
 
-	candles := parseOHLCV(raw)
+	candles, err := parseOHLCV(raw)
+	if err != nil {
+		return utils.ErrorResult(err.Error())
+	}
+	if err := requireCandleFields(raw, "open", "volume"); err != nil {
+		return utils.ErrorResult(err.Error())
+	}
 	out := evaluateExitSignals(candles, lookback)
+	if out.Status != "evaluated" {
+		return utils.ErrorResult(out.Detail)
+	}
 
 	icon := "✅"
 	if out.ShouldExit {

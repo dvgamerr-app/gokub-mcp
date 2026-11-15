@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math"
 
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	jsoniter "github.com/json-iterator/go"
@@ -97,6 +98,9 @@ func ParseFloatArray(raw []any) ([]float64, error) {
 			out[i] = float64(n)
 		default:
 			return nil, fmt.Errorf("element %d is not a number", i)
+		}
+		if out[i] <= 0 || math.IsNaN(out[i]) || math.IsInf(out[i], 0) {
+			return nil, fmt.Errorf("element %d must be a finite positive price", i)
 		}
 	}
 	return out, nil

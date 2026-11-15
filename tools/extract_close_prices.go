@@ -37,19 +37,9 @@ func ExtractClosePricesHandler(ctx context.Context, request mcp.CallToolRequest)
 		return utils.ErrorResult("candles must be an array")
 	}
 
-	prices := make([]float64, 0, len(candlesRaw))
-	for _, c := range candlesRaw {
-		m, ok := c.(map[string]any)
-		if !ok {
-			continue
-		}
-		if v, ok := m["close"].(float64); ok && v > 0 {
-			prices = append(prices, v)
-		}
-	}
-
-	if len(prices) == 0 {
-		return utils.ErrorResult("no valid close prices found in candles")
+	prices, _, err := parseRegimeData(map[string]any{"candles": candlesRaw})
+	if err != nil {
+		return utils.ErrorResult(err.Error())
 	}
 
 	result := &ExtractedPrices{
