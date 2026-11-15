@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
+	"math"
 	"sort"
 	"strings"
 
@@ -37,6 +38,7 @@ func recoverMarketRequest[T any](request func() (T, error)) (result T, err error
 func NewGetMarketScreenerTool() mcp.Tool {
 	return mcp.NewTool("get_market_screener",
 		mcp.WithDescription("Screen and rank trading pairs by volume, spread, and liquidity depth. Returns top pairs suitable for trading"),
+		mcp.WithBoolean("exchange_only", mcp.Description("Exclude broker coins and frozen/non-THB pairs using exchange metadata (default false)")),
 		mcp.WithNumber("min_volume_24h",
 			mcp.Description("Minimum 24h volume in THB (default: 1000000 = 1M THB)"),
 		),
@@ -47,7 +49,7 @@ func NewGetMarketScreenerTool() mcp.Tool {
 			mcp.Description("Minimum liquidity depth in THB within ±1% (default: 50000 THB)"),
 		),
 		mcp.WithNumber("limit",
-			mcp.Description("Number of top results to return (default: 10, max: 20)"),
+			mcp.Description("Number of top results to return (default: 10, max: 20). Use 0 to return ALL passing pairs."),
 		),
 	)
 }
@@ -62,7 +64,23 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	minVolume := utils.GetFloat64Arg(args, "min_volume_24h", 1000000.0)
 	maxSpread := utils.GetFloat64Arg(args, "max_spread", 2.0)
 	minDepth := utils.GetFloat64Arg(args, "min_depth", 50000.0)
-	limit := min(max(utils.GetIntArg(args, "limit", 10), 1), 20)
+	limit := utils.GetIntArg(args, "limit", 10)
+	if limit < 0 || limit > 20 || math.IsNaN(minVolume) || math.IsInf(minVolume, 0) || minVolume < 0 || math.IsNaN(maxSpread) || math.IsInf(maxSpread, 0) || maxSpread <= 0 || math.IsNaN(minDepth) || math.IsInf(minDepth, 0) || minDepth < 0 {
+		return utils.ErrorResult("invalid screener filters or limit (use 0 for all, or 1-20)")
+	}
+	exchangeOnly := utils.GetBoolArg(args, "exchange_only")
+	allowed := map[string]bool{}
+	if exchangeOnly {
+		pairs, err := market.GetSymbols()
+		if err != nil {
+			return utils.ErrorResult("failed to fetch symbol source metadata")
+		}
+		for _, pair := range pairs {
+			if exchangePairAllowed(pair) {
+				allowed[strings.ToLower(pair.Symbol)] = true
+			}
+		}
+	}
 
 	toolOutput, err := recoverMarketRequest(func() (*mcp.CallToolResult, error) {
 		return SymbolsHandler(ctx, mcp.CallToolRequest{Params: mcp.CallToolParams{
@@ -99,8 +117,15 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	for _, sym := range symbolsInfo {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if sym == nil {
 			stats["ticker_fail"]++
+			continue
+		}
+		if exchangeOnly && !allowed[strings.ToLower(sym.Symbol)] {
+			stats["excluded_source"]++
 			continue
 		}
 
@@ -115,7 +140,7 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		}
 
 		mid := (sym.Bid + sym.Ask) / 2
-		spreadPercent := (sym.Spread / mid) * 100
+		spreadPercent := ((sym.Ask - sym.Bid) / mid) * 100
 
 		if spreadPercent > maxSpread {
 			stats["high_spread"]++
@@ -184,7 +209,7 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 		return results[i].Score > results[j].Score
 	})
 
-	if len(results) > limit {
+	if limit > 0 && len(results) > limit {
 		results = results[:limit]
 	}
 
@@ -206,6 +231,7 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 
 	data := map[string]any{
 		"filters": map[string]any{
+			"exchange_only":  exchangeOnly,
 			"min_volume_24h": minVolume,
 			"max_spread":     maxSpread,
 			"min_depth":      minDepth,
@@ -216,4 +242,8 @@ func GetMarketScreenerHandler(ctx context.Context, request mcp.CallToolRequest) 
 	}
 
 	return utils.ArtifactsResult(result, data)
+}
+
+func exchangePairAllowed(pair market.Symbol) bool {
+	return strings.EqualFold(pair.Source, "exchange") && strings.EqualFold(pair.QuoteAsset, "THB") && !pair.FreezeBuy && !pair.FreezeSell
 }

@@ -43,7 +43,7 @@ func findSymbolRule(symbol string) (*SymbolRules, error) {
 	}
 
 	for _, s := range symbols {
-		if strings.EqualFold(s.Symbol, raw) {
+		if strings.EqualFold(s.Symbol, raw) || strings.EqualFold(s.Symbol, symbol) {
 			priceStep, _ := strconv.ParseFloat(s.PriceStep, 64)
 			qtyStep, _ := strconv.ParseFloat(s.QuantityStep, 64)
 			return &SymbolRules{

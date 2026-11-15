@@ -254,7 +254,25 @@ PORT=9000 go run . -serv
 
 ## 🛠️ Available Tools
 
-**39 tools** covering the full long-only swing-trading workflow (screen → analyze →
+### Native trade analysis (no client scripts)
+
+Call `analyze_market_trades` with `trend_resolution: 240`, `entry_resolution: 15`,
+`target_net_percent: 2`, and `risk_percent: 2` to scan every liquid exchange-only THB
+pair. It checks closed fresh candles, regime/EMA, relative strength, ATR, entry
+signals, available THB, fees, pending orders and journal positions. Results include
+all pairs, explicit rejection/error reasons and fee/spread-aware plans. It never
+places orders. Check `complete` and `analysis_error_count` before concluding that
+all pairs were analyzed successfully.
+
+For individual steps, use `get_market_screener(exchange_only=true, limit=0)` to
+return every passing pair, and `get_historical_candles(..., closed_only=true)` to
+exclude forming candles and fill no-trade gaps with the previous close and zero
+volume. Filled bars carry `synthetic: true` (also a CSV column); `history_metadata`
+records the last actual candle and filled count. Duplicate timestamps keep the last
+API update without adding volumes. The analyzer blocks entry on zero-volume bars;
+unavailable/out-of-window source data still errors. Existing defaults remain unchanged.
+
+**40 tools** covering the full long-only swing-trading workflow (screen → analyze →
 size → place → manage → log).
 
 <details open>
@@ -321,7 +339,7 @@ size → place → manage → log).
 The tools are the *hands*; the **`bitkub-trade`** plugin is the *brain* — a playbook
 skill that encodes the strategy (screen → regime → relative-strength → ATR → signal →
 size → **validate gate** → round → place → manage → log) and the hard guardrails
-(≤2% risk/trade, long-only, no entry unless `can_trade=true`, client-side stop, TP ≥2R).
+(≤2% risk/trade, long-only, no entry unless `can_trade=true`, client-side stop, fee-aware net-profit targets).
 
 → Install it in [step 5 of Installation](#-installation). Details:
 [`plugins/bitkub-trade`](plugins/bitkub-trade/README.md).
@@ -383,7 +401,7 @@ against real credentials.
 gokub-mcp/
 ├── 📄 main.go                      # MCP Server entry point (Streamable HTTP) + tool registration
 ├── 🐳 Dockerfile                   # Streamable HTTP server image
-├── 📂 tools/                       # 39 MCP tools (+ unit tests)
+├── 📂 tools/                       # 40 MCP tools (+ unit tests)
 ├── 📂 prompts/                     # trading_strategy, market_analysis prompts
 ├── 📂 resources/                   # bitkub://symbols, bitkub://ticker/{symbol}
 ├── 📂 utils/                       # Utility functions
@@ -409,7 +427,7 @@ gokub-mcp/
 
 ### ✅ Completed
 - [x] Bitkub API golang library + MCP Server (Streamable HTTP + stdio)
-- [x] **39 trading tools** — foundation, indicators, entry signals, risk, orders, management, logging
+- [x] **40 trading tools** — foundation, indicators, entry signals, risk, orders, management, logging, native market analysis
 - [x] Risk-based position sizing + pre-trade `validate_trade_setup` gate
 - [x] Client-side stop worker (Bitkub has no native stop/OCO)
 - [x] Trade journal + expectancy (flat-file `trades.json`)
