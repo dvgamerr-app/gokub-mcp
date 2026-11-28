@@ -1,4 +1,4 @@
-FROM golang:1.26.6-alpine AS build
+FROM golang:1.26.11-alpine AS build
 ENV GOTOOLCHAIN=local
 WORKDIR /src
 COPY . .
