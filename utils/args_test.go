@@ -52,3 +52,18 @@ func TestGetFloat64ArrayArg(t *testing.T) {
 		})
 	}
 }
+
+func TestBaseQuote(t *testing.T) {
+	cases := map[string]string{
+		"THB_BTC":   "BTC_THB",
+		"btc_thb":   "BTC_THB",
+		" thb_kub ": "KUB_THB",
+		"BTC_THB":   "BTC_THB",
+		"usdt":      "USDT",
+	}
+	for in, want := range cases {
+		if got := BaseQuote(in); got != want {
+			t.Fatalf("BaseQuote(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"strconv"
-	"strings"
 
 	"github.com/dvgamerr-app/go-bitkub/market"
-	bkutils "github.com/dvgamerr-app/go-bitkub/utils"
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/rs/zerolog/log"
 )
@@ -33,17 +31,15 @@ func NewSymbolRulesTool() mcp.Tool {
 	)
 }
 
-// findSymbolRule fetches the symbol list from Bitkub and returns rules for one pair.
-// Bitkub returns symbols as THB_BTC; NormalizeSymbol converts btc_thb -> THB_BTC.
 func findSymbolRule(symbol string) (*SymbolRules, error) {
-	raw := bkutils.NormalizeSymbol(symbol)
+	wanted := utils.BaseQuote(symbol)
 	symbols, err := market.GetSymbols()
 	if err != nil {
 		return nil, err
 	}
 
 	for _, s := range symbols {
-		if strings.EqualFold(s.Symbol, raw) || strings.EqualFold(s.Symbol, symbol) {
+		if utils.BaseQuote(s.Symbol) == wanted {
 			priceStep, _ := strconv.ParseFloat(s.PriceStep, 64)
 			qtyStep, _ := strconv.ParseFloat(s.QuantityStep, 64)
 			return &SymbolRules{
@@ -58,7 +54,7 @@ func findSymbolRule(symbol string) (*SymbolRules, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("symbol not found: %s", raw)
+	return nil, fmt.Errorf("symbol not found: %s", wanted)
 }
 
 func SymbolRulesHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {

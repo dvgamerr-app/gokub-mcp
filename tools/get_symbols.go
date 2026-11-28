@@ -53,8 +53,7 @@ func SymbolsHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.Call
 	symbolInfos := []*SymbolInfo{}
 
 	for _, sym := range tickers {
-		symbol := strings.Replace(strings.ToUpper(sym.Symbol), "THB_", "", 1)
-		symbol = symbol + "_THB"
+		symbol := utils.BaseQuote(sym.Symbol)
 
 		symbolInfos = append(symbolInfos, &SymbolInfo{
 			Symbol:    symbol,

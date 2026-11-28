@@ -38,6 +38,13 @@ func NewGetOrderStatusTool() mcp.Tool {
 	)
 }
 
+func orderInfoErrorMessage(err error) string {
+	if strings.Contains(err.Error(), "[error 24]") {
+		return fmt.Sprintf("error: %v (order not found: Bitkub no longer returns orders cancelled more than 3 days ago; check get_my_open_orders or the trade journal)", err)
+	}
+	return fmt.Sprintf("error: %v", err)
+}
+
 func GetOrderStatusHandler(ctx context.Context, request mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	args, err := utils.ValidateArgs(request.Params.Arguments)
 	if err != nil {
@@ -58,7 +65,7 @@ func GetOrderStatusHandler(ctx context.Context, request mcp.CallToolRequest) (*m
 	info, err := market.GetOrderInfo(symbol, orderID, side)
 	if err != nil {
 		log.Warn().Err(err).Str("order_id", orderID).Msg("Failed to get order info")
-		return utils.ErrorResult(fmt.Sprintf("error: %v", err))
+		return utils.ErrorResult(orderInfoErrorMessage(err))
 	}
 
 	status := info.Status

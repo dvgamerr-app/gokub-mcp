@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"sort"
-	"strings"
 
 	"github.com/dvgamerr-app/go-bitkub/market"
 	mcp "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
@@ -78,11 +77,12 @@ func GetMarketOverviewHandler(ctx context.Context, request mcp.CallToolRequest) 
 		if t.PercentChange > 0 {
 			upCount++
 		}
-		if strings.EqualFold(t.Symbol, "THB_BTC") {
+		symbol := utils.BaseQuote(t.Symbol)
+		if symbol == "BTC_THB" {
 			btcChange = t.PercentChange
 		}
 		movers = append(movers, MarketMover{
-			Symbol:        t.Symbol,
+			Symbol:        symbol,
 			Last:          t.Last,
 			PercentChange: t.PercentChange,
 			QuoteVolume:   t.QuoteVolume,
