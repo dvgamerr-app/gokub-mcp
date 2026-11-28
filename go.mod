@@ -2,10 +2,7 @@ module github.com/dvgamerr-app/gokub-mcp
 
 go 1.26.11
 
-require (
-	github.com/json-iterator/go v1.1.12
-	github.com/tmilewski/goenv v1.0.0
-)
+require github.com/json-iterator/go v1.1.12
 
 require (
 	github.com/dvgamerr-app/go-bitkub v1.5.0

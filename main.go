@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/dvgamerr-app/go-bitkub/bitkub"
+	bitkubutils "github.com/dvgamerr-app/go-bitkub/utils"
 	mcpcompat "github.com/dvgamerr-app/gokub-mcp/internal/mcpcompat"
 	"github.com/dvgamerr-app/gokub-mcp/prompts"
 	"github.com/dvgamerr-app/gokub-mcp/resources"
@@ -14,11 +15,11 @@ import (
 	"github.com/dvgamerr-app/gokub-mcp/utils"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog/log"
-	"github.com/tmilewski/goenv"
 )
 
 func init() {
-	goenv.Load()
+	// Same as the bitkub CLI: .env only fills variables the environment does not already set.
+	_ = bitkubutils.LoadDotEnv()
 
 	utils.InitLogger()
 
