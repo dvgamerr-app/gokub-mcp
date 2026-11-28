@@ -1,7 +1,9 @@
 package tools
 
 import (
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -52,5 +54,16 @@ func TestEvaluateExitSignals(t *testing.T) {
 	healthy[20] = Candle{Open: 100, High: 102, Low: 100, Close: 101, Volume: 1200}
 	if ok := evaluateExitSignals(healthy, 20); ok.ShouldExit {
 		t.Fatalf("expected no exit for healthy candle, got %v", ok.Reasons)
+	}
+}
+
+func TestOrderInfoErrorMessageExplainsExpiredCancel(t *testing.T) {
+	expired := orderInfoErrorMessage(errors.New("HTTP 400: [error 24] Invalid order for lookup / Invalid kyc level"))
+	if !strings.Contains(expired, "3 days") {
+		t.Fatalf("missing cancelled-order hint: %s", expired)
+	}
+	other := orderInfoErrorMessage(errors.New("[error 11] Invalid symbol"))
+	if strings.Contains(other, "3 days") || !strings.Contains(other, "Invalid symbol") {
+		t.Fatalf("unexpected message: %s", other)
 	}
 }
